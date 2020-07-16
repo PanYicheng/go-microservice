@@ -13,6 +13,7 @@ type IBoltClient interface {
         OpenBoltDb()
         QueryAccount(accountId string) (model.Account, error)
         Seed()
+		Check() bool // Check the status of BoltDB client
 }
 // Real implementation
 type BoltClient struct {
@@ -96,4 +97,8 @@ func (bc *BoltClient) QueryAccount(accountId string) (model.Account, error) {
         }
         // Return the Account struct and nil as error.
         return account, nil
+}
+
+func (bc *BoltClient) Check() bool {
+	return bc.boltDB != nil
 }
