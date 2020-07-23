@@ -3,14 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/PanYicheng/go-microservice/accountservice/dbclient" // NEW
-	"github.com/PanYicheng/go-microservice/accountservice/service"  // NEW
-	"github.com/PanYicheng/go-microservice/common/config"           // NEW
-	"github.com/PanYicheng/go-microservice/common/messaging"        // NEW
+	"github.com/PanYicheng/go-microservice/common/config"
+	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/PanYicheng/go-microservice/vipservice/service"
 	"github.com/spf13/viper"
+	"github.com/streadway/amqp"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-var appName = "accountservice"
+var appName = "vipservice"
 
 // Init function, runs before main()
 func init() {
@@ -34,17 +37,19 @@ func main() {
 		appName,
 		viper.GetString("profile"),
 		viper.GetString("configBranch"))
-	initializeBoltClient()
 	initializeMessaging()
-	go config.StartListener(appName, viper.GetString("amqp_server_url"), viper.GetString("config_event_bus"))
+	// Makes sure connection is closed when service exits.
+	handleSigterm(func() {
+		if service.MessagingClient != nil {
+			service.MessagingClient.Close()
+		}
+	})
 	service.StartWebServer(viper.GetString("server_port"))
 }
 
-// Creates instance and calls the OpenBoltDb and Seed funcs
-func initializeBoltClient() {
-	service.DBClient = &dbclient.BoltClient{}
-	service.DBClient.OpenBoltDb()
-	service.DBClient.Seed()
+// The callback function that's invoked whenever we get a message on the "vipQueue"
+func onMessage(delivery amqp.Delivery) {
+	fmt.Printf("Got a message: %v\n", string(delivery.Body))
 }
 
 // Call this from the main method.
@@ -56,4 +61,21 @@ func initializeMessaging() {
 	service.MessagingClient = &messaging.MessagingClient{}
 	service.MessagingClient.ConnectToBroker(viper.GetString("amqp_server_url"))
 	service.MessagingClient.Subscribe(viper.GetString("config_event_bus"), "topic", appName, config.HandleRefreshEvent)
+
+	// Call the subscribe method with queue name and callback function
+	err := service.MessagingClient.SubscribeToQueue("vipQueue", appName, onMessage)
+	if err != nil {
+		fmt.Println("Could not start subscribe to vip_queue")
+	}
+}
+
+func handleSigterm(handleExit func()) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM)
+	go func() {
+		<-c
+		handleExit()
+		os.Exit(1)
+	}()
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd support/config-server
-./gradlew build
+./gradlew -Dhttp.proxyHost=192.168.50.4 -Dhttp.proxyPort=1082 -Dhttps.proxyHost=192.168.50.4 -Dhttps.proxyPort=1082 build
 cd ../..
 docker build -t unusedprefix/configserver support/config-server/
 docker service rm configserver
