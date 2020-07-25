@@ -3,19 +3,22 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/sirupsen/logrus"
+
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
-	"log"
+
 	"strings"
 )
 
 func StartListener(appName string, amqpServer string, exchangeName string) {
 	err := NewConsumer(amqpServer, exchangeName, "topic", "config-event-queue", exchangeName, appName)
 	if err != nil {
-		log.Fatalf("%s", err)
+		logrus.Fatal(err)
 	}
 
-	log.Printf("running forever")
+	logrus.Printf("running forever")
 	select {} // Yet another way to stop a Goroutine from finishing...
 }
 
@@ -36,19 +39,19 @@ func NewConsumer(amqpURI, exchange, exchangeType, queue, key, ctag string) error
 
 	var err error
 
-	log.Printf("dialing %s", amqpURI)
+	logrus.Printf("dialing %s", amqpURI)
 	c.conn, err = amqp.Dial(amqpURI)
 	if err != nil {
-		return fmt.Errorf("Dial: %s", err)
+		return fmt.Errorf("Dial: %s", err.Error())
 	}
 
-	log.Printf("got Connection, getting Channel")
+	logrus.Printf("got Connection, getting Channel")
 	c.channel, err = c.conn.Channel()
 	if err != nil {
 		return fmt.Errorf("Channel: %s", err)
 	}
 
-	log.Printf("got Channel, declaring Exchange (%s)", exchange)
+	logrus.Printf("got Channel, declaring Exchange (%s)", exchange)
 	if err = c.channel.ExchangeDeclare(
 		exchange,     // name of the exchange
 		exchangeType, // type
@@ -61,7 +64,7 @@ func NewConsumer(amqpURI, exchange, exchangeType, queue, key, ctag string) error
 		return fmt.Errorf("Exchange Declare: %s", err)
 	}
 
-	log.Printf("declared Exchange, declaring Queue (%s)", queue)
+	logrus.Printf("declared Exchange, declaring Queue (%s)", queue)
 	state, err := c.channel.QueueDeclare(
 		queue, // name of the queue
 		false, // durable
@@ -74,7 +77,7 @@ func NewConsumer(amqpURI, exchange, exchangeType, queue, key, ctag string) error
 		return fmt.Errorf("Queue Declare: %s", err)
 	}
 
-	log.Printf("declared Queue (%d messages, %d consumers), binding to Exchange (key '%s')",
+	logrus.Printf("declared Queue (%d messages, %d consumers), binding to Exchange (key '%s')",
 		state.Messages, state.Consumers, key)
 
 	if err = c.channel.QueueBind(
@@ -87,7 +90,7 @@ func NewConsumer(amqpURI, exchange, exchangeType, queue, key, ctag string) error
 		return fmt.Errorf("Queue Bind: %s", err)
 	}
 
-	log.Printf("Queue bound to Exchange, starting Consume (consumer tag '%s')", c.tag)
+	logrus.Printf("Queue bound to Exchange, starting Consume (consumer tag '%s')", c.tag)
 	deliveries, err := c.channel.Consume(
 		queue, // name
 		c.tag, // consumerTag,
@@ -116,7 +119,7 @@ func (c *Consumer) Shutdown() error {
 		return fmt.Errorf("AMQP connection close error: %s", err)
 	}
 
-	defer log.Printf("AMQP shutdown OK")
+	defer logrus.Printf("AMQP shutdown OK")
 
 	// wait for handle() to exit
 	return <-c.done
@@ -124,7 +127,7 @@ func (c *Consumer) Shutdown() error {
 
 func handle(deliveries <-chan amqp.Delivery, done chan error) {
 	for d := range deliveries {
-		log.Printf(
+		logrus.Printf(
 			"got %dB consumer: [%v] delivery: [%v] routingkey: [%v] %s",
 			len(d.Body),
 			d.ConsumerTag,
@@ -135,7 +138,7 @@ func handle(deliveries <-chan amqp.Delivery, done chan error) {
 		handleRefreshEvent(d.Body, d.ConsumerTag)
 		d.Ack(false)
 	}
-	log.Printf("handle: deliveries channel closed")
+	logrus.Printf("handle: deliveries channel closed")
 	done <- nil
 }
 
@@ -144,10 +147,10 @@ func handleRefreshEvent(body []byte, consumerTag string) {
 	updateToken := &UpdateToken{}
 	err := json.Unmarshal(body, updateToken)
 	if err != nil {
-		log.Printf("Problem parsing UpdateToken: %v", err.Error())
+		logrus.Printf("Problem parsing UpdateToken: %v", err.Error())
 	} else {
 		if strings.Contains(updateToken.DestinationService, consumerTag) {
-			log.Println("Reloading Viper config from Spring Cloud Config server")
+			logrus.Println("Reloading Viper config from Spring Cloud Config server")
 
 			// Consumertag is same as application name.
 			LoadConfigurationFromBranch(
@@ -166,10 +169,10 @@ func HandleRefreshEvent(d amqp.Delivery) {
 	updateToken := &UpdateToken{}
 	err := json.Unmarshal(body, updateToken)
 	if err != nil {
-		log.Printf("Problem parsing UpdateToken: %v", err.Error())
+		logrus.Printf("Problem parsing UpdateToken: %v", err.Error())
 	} else {
 		if strings.Contains(updateToken.DestinationService, consumerTag) {
-			log.Println("Reloading Viper config from Spring Cloud Config server")
+			logrus.Println("Reloading Viper config from Spring Cloud Config server")
 
 			// Consumertag is same as application name.
 			LoadConfigurationFromBranch(

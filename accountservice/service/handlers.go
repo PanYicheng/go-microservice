@@ -3,15 +3,18 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PanYicheng/go-microservice/accountservice/dbclient"
-	"github.com/PanYicheng/go-microservice/accountservice/model"
-	"github.com/PanYicheng/go-microservice/common/messaging"
-	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/PanYicheng/go-microservice/accountservice/dbclient"
+	"github.com/PanYicheng/go-microservice/accountservice/model"
+	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/gorilla/mux"
 )
 
 // DBClient acts as database client
@@ -60,7 +63,7 @@ func notifyVIP(account model.Account) {
 			data, _ := json.Marshal(vipNotification)
 			err := MessagingClient.PublishOnQueue(data, "vipQueue")
 			if err != nil {
-				fmt.Println(err.Error())
+				logrus.Println(err.Error())
 			}
 		}(account)
 	}
@@ -129,7 +132,7 @@ func SetHealthyState(w http.ResponseWriter, r *http.Request) {
 
 	// If we couldn't parse the state param, return a HTTP 400
 	if err != nil {
-		fmt.Println("Invalid request to SetHealthyState, allowed values are true or false")
+		logrus.Println("Invalid request to SetHealthyState, allowed values are true or false")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

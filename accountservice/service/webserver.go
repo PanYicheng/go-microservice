@@ -1,7 +1,8 @@
 package service
 
 import (
-	"log"
+	"github.com/sirupsen/logrus"
+
 	"net/http"
 )
 
@@ -9,10 +10,10 @@ import (
 func StartWebServer(port string) {
 	r := NewRouter()
 	http.Handle("/", r)
-	log.Println("Starting HTTP service at " + port)
+	logrus.Println("Starting HTTP service at " + port)
 	err := http.ListenAndServe(":"+port, nil) // Goroutine will block here
 	if err != nil {
-		log.Println("An error occured starting HTTP listener at port " + port)
-		log.Println("Error: " + err.Error())
+		logrus.Println("An error occured starting HTTP listener at port " + port)
+		logrus.Println("Error: " + err.Error())
 	}
 }

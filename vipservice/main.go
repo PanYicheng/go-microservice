@@ -1,16 +1,16 @@
 package main
 
 import (
+	"github.com/sirupsen/logrus"
 	"flag"
-	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"github.com/PanYicheng/go-microservice/common/config"
 	"github.com/PanYicheng/go-microservice/common/messaging"
 	"github.com/PanYicheng/go-microservice/vipservice/service"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 var appName = "vipservice"
@@ -27,10 +27,19 @@ func init() {
 	viper.Set("profile", *profile)
 	viper.Set("configServerUrl", *configServerUrl)
 	viper.Set("configBranch", *configBranch)
+
+	if *profile == "dev" {
+		logrus.SetFormatter(&logrus.TextFormatter{
+			TimestampFormat: "2006-01-02T15:04:05.000",
+			FullTimestamp:   true,
+		})
+	} else {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	}
 }
 
 func main() {
-	fmt.Printf("Starting %v\n", appName)
+	logrus.Printf("Starting %v\n", appName)
 	// load the config
 	config.LoadConfigurationFromBranch(
 		viper.GetString("configServerUrl"),
@@ -49,7 +58,7 @@ func main() {
 
 // The callback function that's invoked whenever we get a message on the "vipQueue"
 func onMessage(delivery amqp.Delivery) {
-	fmt.Printf("Got a message: %v\n", string(delivery.Body))
+	logrus.Printf("Got a message: %v\n", string(delivery.Body))
 }
 
 // Call this from the main method.
@@ -65,7 +74,7 @@ func initializeMessaging() {
 	// Call the subscribe method with queue name and callback function
 	err := service.MessagingClient.SubscribeToQueue("vipQueue", appName, onMessage)
 	if err != nil {
-		fmt.Println("Could not start subscribe to vip_queue")
+		logrus.Println("Could not start subscribe to vip_queue")
 	}
 }
 

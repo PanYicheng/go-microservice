@@ -1,10 +1,11 @@
 package config
 
 import (
+	"testing"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
 	"gopkg.in/h2non/gock.v1"
-	"testing"
 )
 
 var SERVICE_NAME = "accountservice"

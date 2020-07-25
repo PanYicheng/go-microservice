@@ -1,12 +1,15 @@
 package service
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"encoding/json"
-	"fmt"
-	"github.com/PanYicheng/go-microservice/common/messaging"
-	"github.com/gorilla/mux"
+
 	"net/http"
 	"strconv"
+
+	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/gorilla/mux"
 )
 
 // MessagingClient acts as messaging queue client
@@ -52,7 +55,7 @@ func SetHealthyState(w http.ResponseWriter, r *http.Request) {
 
 	// If we couldn't parse the state param, return a HTTP 400
 	if err != nil {
-		fmt.Println("Invalid request to SetHealthyState, allowed values are true or false")
+		logrus.Println("Invalid request to SetHealthyState, allowed values are true or false")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

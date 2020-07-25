@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	port := flag.String("port", "80", "port on localhost to check") 
+	port := flag.String("port", "80", "port on localhost to check")
 	flag.Parse()
 
-	resp, err := http.Get("http://127.0.0.1:" + *port + "/health")    // Note pointer dereference using *
+	resp, err := http.Get("http://127.0.0.1:" + *port + "/health") // Note pointer dereference using *
 
 	// If there is an error or non-200 status, exit with 1 signaling unsuccessful check.
 	if err != nil || resp.StatusCode != 200 {

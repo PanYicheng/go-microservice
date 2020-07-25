@@ -1,8 +1,10 @@
 package main
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"flag"
-	"fmt"
+
 	"github.com/PanYicheng/go-microservice/accountservice/dbclient" // NEW
 	"github.com/PanYicheng/go-microservice/accountservice/service"  // NEW
 	"github.com/PanYicheng/go-microservice/common/config"           // NEW
@@ -24,10 +26,19 @@ func init() {
 	viper.Set("profile", *profile)
 	viper.Set("configServerUrl", *configServerUrl)
 	viper.Set("configBranch", *configBranch)
+
+	if *profile == "dev" {
+		logrus.SetFormatter(&logrus.TextFormatter{
+			TimestampFormat: "2006-01-02T15:04:05.000",
+			FullTimestamp:   true,
+		})
+	} else {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	}
 }
 
 func main() {
-	fmt.Printf("Starting %v\n", appName)
+	logrus.Printf("Starting %v\n", appName)
 	// load the config
 	config.LoadConfigurationFromBranch(
 		viper.GetString("configServerUrl"),
