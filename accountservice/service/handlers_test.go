@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/sirupsen/logrus"
 
+	"fmt"
 	"encoding/json"
 
 	"net/http/httptest"
@@ -50,7 +50,7 @@ func TestGetAccount(t *testing.T) {
 	// Declare two mock behaviours. For "123" as input, return a proper Account struct and nil as error.
 	// For "456" as input, return an empty Account object and a real error.
 	mockRepo.On("QueryAccount", "123").Return(model.Account{Id: "123", Name: "Person_123"}, nil)
-	mockRepo.On("QueryAccount", "456").Return(model.Account{}, logrus.Errorf("Some error"))
+	mockRepo.On("QueryAccount", "456").Return(model.Account{}, fmt.Errorf("Some error"))
 
 	// Finally, assign mockRepo to the DBClient field (it's in _handlers.go_, e.g. in the same package)
 	DBClient = mockRepo

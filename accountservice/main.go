@@ -4,11 +4,15 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/PanYicheng/go-microservice/accountservice/dbclient" // NEW
-	"github.com/PanYicheng/go-microservice/accountservice/service"  // NEW
-	"github.com/PanYicheng/go-microservice/common/config"           // NEW
-	"github.com/PanYicheng/go-microservice/common/messaging"        // NEW
+	"github.com/PanYicheng/go-microservice/accountservice/dbclient"
+	"github.com/PanYicheng/go-microservice/accountservice/service"
+	"github.com/PanYicheng/go-microservice/common/config"
+	"github.com/PanYicheng/go-microservice/common/messaging"
+	cb "github.com/PanYicheng/go-microservice/common/circuitbreaker"
 	"github.com/spf13/viper"
 )
 
@@ -47,7 +51,12 @@ func main() {
 		viper.GetString("configBranch"))
 	initializeBoltClient()
 	initializeMessaging()
+	cb.ConfigureHystrix([]string{"imageservice", "quotes-service"}, service.MessagingClient)
 	go config.StartListener(appName, viper.GetString("amqp_server_url"), viper.GetString("config_event_bus"))
+	handleSigterm(func() {
+        cb.Deregister(service.MessagingClient)
+        service.MessagingClient.Close()
+    })
 	service.StartWebServer(viper.GetString("server_port"))
 }
 
@@ -67,4 +76,16 @@ func initializeMessaging() {
 	service.MessagingClient = &messaging.MessagingClient{}
 	service.MessagingClient.ConnectToBroker(viper.GetString("amqp_server_url"))
 	service.MessagingClient.Subscribe(viper.GetString("config_event_bus"), "topic", appName, config.HandleRefreshEvent)
+}
+
+// Handles Ctrl+C or most other means of "controlled" shutdown gracefully. Invokes the supplied func before exiting.
+func handleSigterm(handleExit func()) {
+    c := make(chan os.Signal, 1)
+    signal.Notify(c, os.Interrupt)
+    signal.Notify(c, syscall.SIGTERM)
+    go func() {
+        <-c
+        handleExit()
+        os.Exit(1)
+    }()
 }

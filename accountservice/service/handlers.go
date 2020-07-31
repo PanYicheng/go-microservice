@@ -2,18 +2,15 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/sirupsen/logrus"
-
-	"io/ioutil"
-	"net"
 	"net/http"
 	"strconv"
 	"time"
-
 	"github.com/PanYicheng/go-microservice/accountservice/dbclient"
 	"github.com/PanYicheng/go-microservice/accountservice/model"
 	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/PanYicheng/go-microservice/common/util"
+	cb "github.com/PanYicheng/go-microservice/common/circuitbreaker"
 	"github.com/gorilla/mux"
 )
 
@@ -23,6 +20,11 @@ var DBClient dbclient.IBoltClient
 // MessagingClient acts as messaging queue client
 var MessagingClient messaging.IMessagingClient
 var client = &http.Client{}
+
+var fallbackQuote = model.Quote{
+	Language: "en",
+	ServedBy: "circuit-breaker",
+	Text:     "May the source be with you, always."}
 
 func init() {
 	var transport http.RoundTripper = &http.Transport{
@@ -39,16 +41,14 @@ func GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Read the account struct BoltDB
 	account, err := DBClient.QueryAccount(accountID)
-	account.ServedBy = getIP()
+	account.ServedBy = util.GetIP()
 	// If err, return a 404
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	quote, err := getQuote()
-	if err == nil {
-		account.Quote = quote
-	}
+	account.Quote = getQuote()
+	account.ImageUrl = getImageUrl(accountID)
 	notifyVIP(account)
 	// If found, marshal into JSON, write headers and content
 	data, _ := json.Marshal(account)
@@ -69,33 +69,24 @@ func notifyVIP(account model.Account) {
 	}
 }
 
-func getIP() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "error"
+func getQuote() (model.Quote) {
+	body, err := cb.CallUsingCircuitBreaker("quotes-service", "http://quotes-service:8080/api/quote?strength=13", "GET")
+	if err == nil {
+		quote := model.Quote{}
+		json.Unmarshal(body, &quote)
+		return quote
+	} else {
+		return fallbackQuote
 	}
-	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
-			}
-		}
-	}
-	panic("Unable to determine local IP address (non loopback). Exiting.")
 }
 
-func getQuote() (model.Quote, error) {
-	req, _ := http.NewRequest("GET", "http://quotes-service:8080/api/quote?strength=4", nil)
-	resp, err := client.Do(req)
-
-	if err == nil && resp.StatusCode == 200 {
-		quote := model.Quote{}
-		bytes, _ := ioutil.ReadAll(resp.Body)
-		json.Unmarshal(bytes, &quote)
-		return quote, nil
-	}
-	return model.Quote{}, fmt.Errorf("Some error")
+func getImageUrl(accountId string) (string) {
+        body, err := cb.CallUsingCircuitBreaker("imageservice", "http://imageservice:7777/accounts/" + accountId, "GET")
+        if err == nil {
+        return string(body)
+    } else {
+        return "http://path.to.placeholder"
+    }
 }
 
 // HealthCheck is the http handlers for http request /health

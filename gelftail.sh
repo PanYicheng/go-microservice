@@ -1,6 +1,4 @@
 #!/bin/bash
-
-export GOOS=linux
 export CGO_ENABLED=0
 
 cd gelftail;go get;go build -o gelftail-linux-amd64;echo built `pwd`;cd ..

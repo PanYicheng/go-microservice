@@ -14,13 +14,8 @@ import (
 
 // MessagingClient acts as messaging queue client
 var MessagingClient messaging.IMessagingClient
-var client = &http.Client{}
 
 func init() {
-	var transport http.RoundTripper = &http.Transport{
-		DisableKeepAlives: true,
-	}
-	client.Transport = transport
 }
 
 var isHealthy = true

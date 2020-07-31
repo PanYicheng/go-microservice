@@ -4,4 +4,4 @@ EXPOSE 6767
 ADD vipservice-linux-amd64 /
 ADD healthchecker-linux-amd64 /
 HEALTHCHECK --interval=3s --timeout=3s CMD ["./healthchecker-linux-amd64", "-port=6767"] || exit 1
-ENTRYPOINT ["./vipservice-linux-amd64", "-configServerUrl=http://configserver:8888", "-profile=test", "-configBranch=P9"]
+ENTRYPOINT ["./vipservice-linux-amd64", "-configServerUrl=http://configserver:8888", "-profile=dev", "-configBranch=P11"]
