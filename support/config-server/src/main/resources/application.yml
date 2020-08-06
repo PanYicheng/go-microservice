@@ -1,8 +1,7 @@
 server.port: 8888
 
 # Sample configuration of an external Git-repo
-spring.cloud.config.server.git.uri: https://github.com/PanYicheng/go-microservice-config.git  
-
+spring.cloud.config.server.git.uri: https://github.com/PanYicheng/go-microservice-config.git 
 logging:
   level:
     root: WARN
@@ -23,11 +22,11 @@ spring:
   cloud:
     bus:
       trace:
-        enabled: true
+        enabled: false
     config:
       server:
-        git:
-            uri: https://github.com/PanYicheng/go-microservice-config.git 
+            git:
+                uri: https://github.com/PanYicheng/go-microservice-config.git 
 #        native:
 #          search-locations: file:/config-repo
 # spring.cloud.bus.trace.enabled=true

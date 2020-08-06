@@ -106,7 +106,7 @@ func (m *MessagingClient) PublishOnQueue(body []byte, queueName string) error {
 			ContentType: "application/json",
 			Body:        body, // Our JSON body as []byte
 		})
-	logrus.Printf("A message was sent to queue %v: %v", queueName, body)
+	//logrus.Printf("A message was sent to queue %v: %v", queueName, string(body))
 	return err
 }
 

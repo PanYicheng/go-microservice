@@ -1,6 +1,7 @@
 package dbclient
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -8,11 +9,12 @@ import (
 	"github.com/PanYicheng/go-microservice/accountservice/model"
 	"github.com/boltdb/bolt"
 	"github.com/sirupsen/logrus"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 )
 
 type IBoltClient interface {
 	OpenBoltDb()
-	QueryAccount(accountId string) (model.Account, error)
+	QueryAccount(ctx context.Context, accountId string) (model.Account, error)
 	Seed()
 	Check() bool // Check the status of BoltDB client
 }
@@ -73,7 +75,14 @@ func (bc *BoltClient) seedAccounts() {
 	}
 	logrus.Printf("Seeded %v fake accounts...\n", total)
 }
-func (bc *BoltClient) QueryAccount(accountId string) (model.Account, error) {
+
+// QueryAccount query the account in BoltDB
+func (bc *BoltClient) QueryAccount(ctx context.Context, accountId string) (model.Account, error) {
+
+	// Tracing code.
+	span := tracing.StartChildSpanFromContext(ctx, "QueryAccount")
+	defer span.Finish()
+
 	// Allocate an empty Account instance we'll let json.Unmarhal populate for us in a bit.
 	account := model.Account{}
 
@@ -85,7 +94,7 @@ func (bc *BoltClient) QueryAccount(accountId string) (model.Account, error) {
 		// Read the value identified by our accountId supplied as []byte
 		accountBytes := b.Get([]byte(accountId))
 		if accountBytes == nil {
-			return fmt.Errorf("No account found for %s" + accountId)
+			return fmt.Errorf("No account found for %s", accountId)
 		}
 		// Unmarshal the returned bytes into the account struct we created at
 		// the top of the function

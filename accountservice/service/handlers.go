@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/PanYicheng/go-microservice/accountservice/model"
 	"github.com/PanYicheng/go-microservice/common/messaging"
 	"github.com/PanYicheng/go-microservice/common/util"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 	cb "github.com/PanYicheng/go-microservice/common/circuitbreaker"
 	"github.com/gorilla/mux"
 )
@@ -35,28 +37,28 @@ func init() {
 
 // GetAccount handlers http request of /accounts/xxx
 func GetAccount(w http.ResponseWriter, r *http.Request) {
-
 	// Read the 'accountID' path parameter from the mux map
 	var accountID = mux.Vars(r)["accountId"]
 
 	// Read the account struct BoltDB
-	account, err := DBClient.QueryAccount(accountID)
+	account, err := DBClient.QueryAccount(r.Context(), accountID)
 	account.ServedBy = util.GetIP()
 	// If err, return a 404
 	if err != nil {
+		logrus.Errorf("Some error occured serving %v: %s", accountID, err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	account.Quote = getQuote()
-	account.ImageUrl = getImageUrl(accountID)
-	notifyVIP(account)
+	account.Quote = getQuote(r.Context())
+	account.ImageUrl = getImageUrl(r.Context(), accountID)
+	notifyVIP(r.Context(), account)
 	// If found, marshal into JSON, write headers and content
 	data, _ := json.Marshal(account)
 	writeJSONResponse(w, http.StatusOK, data)
 }
 
 // If our hard-coded "VIP" account, spawn a goroutine to send a message.
-func notifyVIP(account model.Account) {
+func notifyVIP(ctx context.Context, account model.Account) {
 	if account.Id == "10000" {
 		go func(account model.Account) {
 			vipNotification := model.VipNotification{AccountId: account.Id, ReadAt: time.Now().UTC().String()}
@@ -65,12 +67,19 @@ func notifyVIP(account model.Account) {
 			if err != nil {
 				logrus.Println(err.Error())
 			}
+			tracing.LogEventToOngoingSpan(ctx, "Sent VIP message")
 		}(account)
 	}
 }
 
-func getQuote() (model.Quote) {
-	body, err := cb.CallUsingCircuitBreaker("quotes-service", "http://quotes-service:8080/api/quote?strength=13", "GET")
+func getQuote(ctx context.Context) (model.Quote) {
+	// Start a new opentracing child span
+	child := tracing.StartSpanFromContextWithLogEvent(ctx, "getQuote", "Client send")
+	defer tracing.CloseSpan(child, "Client Receive")
+
+	// Create the http request and pass it to the circuit breaker
+	req, err := http.NewRequest("GET", "http://quotes-service:8080/api/quote?strength=4", nil)
+	body, err := cb.CallUsingCircuitBreaker(ctx, "quotes-service", req)
 	if err == nil {
 		quote := model.Quote{}
 		json.Unmarshal(body, &quote)
@@ -80,10 +89,14 @@ func getQuote() (model.Quote) {
 	}
 }
 
-func getImageUrl(accountId string) (string) {
-        body, err := cb.CallUsingCircuitBreaker("imageservice", "http://imageservice:7777/accounts/" + accountId, "GET")
-        if err == nil {
-        return string(body)
+func getImageUrl(ctx context.Context, accountId string) (string) {
+	child := tracing.StartSpanFromContextWithLogEvent(ctx, "getImageUrl", "Client send")
+	defer tracing.CloseSpan(child, "Client Receive")
+
+	req, err := http.NewRequest("GET", "http://imageservice:7777/accounts/" + accountId, nil)
+	body, err := cb.CallUsingCircuitBreaker(ctx, "imageservice", req)
+	if err == nil {
+		return string(body)
     } else {
         return "http://path.to.placeholder"
     }

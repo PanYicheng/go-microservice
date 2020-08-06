@@ -12,6 +12,7 @@ import (
 	"github.com/PanYicheng/go-microservice/accountservice/service"
 	"github.com/PanYicheng/go-microservice/common/config"
 	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 	cb "github.com/PanYicheng/go-microservice/common/circuitbreaker"
 	"github.com/spf13/viper"
 )
@@ -22,7 +23,7 @@ var appName = "accountservice"
 func init() {
 	// Read command line flags
 	profile := flag.String("profile", "test", "Environment profile, something similar to spring profiles")
-	configServerUrl := flag.String("configServerUrl", "http://configserver:8888", "Address to config server")
+	configServerUrl := flag.String("configServerUrl", "", "Address to config server")
 	configBranch := flag.String("configBranch", "master", "git branch to fetch configuration from")
 	flag.Parse()
 
@@ -43,14 +44,24 @@ func init() {
 
 func main() {
 	logrus.Printf("Starting %v\n", appName)
-	// load the config
-	config.LoadConfigurationFromBranch(
+	// load the config if configServerUrl set
+	if len(viper.GetString("configServerUrl")) > 0 {
+		config.LoadConfigurationFromBranch(
 		viper.GetString("configServerUrl"),
 		appName,
 		viper.GetString("profile"),
 		viper.GetString("configBranch"))
+	} else {
+		// set custome configs if configServerUrl not set
+		viper.Set("amqp_server_url", "http://172.17.7.221:5772")
+		viper.Set("config_event_bus", "springCloudBus")
+		viper.Set("server_port", 6767)
+		viper.Set("zipkin_server_url", "http://localhost:9411")
+
+	}
 	initializeBoltClient()
 	initializeMessaging()
+	initializeTracing()
 	cb.ConfigureHystrix([]string{"imageservice", "quotes-service"}, service.MessagingClient)
 	go config.StartListener(appName, viper.GetString("amqp_server_url"), viper.GetString("config_event_bus"))
 	handleSigterm(func() {
@@ -76,6 +87,10 @@ func initializeMessaging() {
 	service.MessagingClient = &messaging.MessagingClient{}
 	service.MessagingClient.ConnectToBroker(viper.GetString("amqp_server_url"))
 	service.MessagingClient.Subscribe(viper.GetString("config_event_bus"), "topic", appName, config.HandleRefreshEvent)
+}
+
+func initializeTracing() {
+	tracing.InitTracing(viper.GetString("zipkin_server_url"), appName)
 }
 
 // Handles Ctrl+C or most other means of "controlled" shutdown gracefully. Invokes the supplied func before exiting.
