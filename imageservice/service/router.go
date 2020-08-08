@@ -3,6 +3,7 @@ package service
 import (
 	"net/http"
 	"github.com/gorilla/mux"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 )
 
 /**
@@ -22,5 +23,6 @@ func NewRouter() *mux.Router {
 			Name(route.Name).
 			Handler(handler)
 	}
+	router.Use(tracing.ServerMiddleware)
 	return router
 }

@@ -39,6 +39,7 @@ func init() {
 func GetAccount(w http.ResponseWriter, r *http.Request) {
 	// Read the 'accountID' path parameter from the mux map
 	var accountID = mux.Vars(r)["accountId"]
+	logrus.Debugf("GetAccount: %s", accountID)
 
 	// Read the account struct BoltDB
 	account, err := DBClient.QueryAccount(r.Context(), accountID)
@@ -60,6 +61,7 @@ func GetAccount(w http.ResponseWriter, r *http.Request) {
 // If our hard-coded "VIP" account, spawn a goroutine to send a message.
 func notifyVIP(ctx context.Context, account model.Account) {
 	if account.Id == "10000" {
+		tracing.LogEventToOngoingSpan(ctx, "Sent VIP message")
 		go func(account model.Account) {
 			vipNotification := model.VipNotification{AccountId: account.Id, ReadAt: time.Now().UTC().String()}
 			data, _ := json.Marshal(vipNotification)
@@ -67,12 +69,12 @@ func notifyVIP(ctx context.Context, account model.Account) {
 			if err != nil {
 				logrus.Println(err.Error())
 			}
-			tracing.LogEventToOngoingSpan(ctx, "Sent VIP message")
 		}(account)
 	}
 }
 
 func getQuote(ctx context.Context) (model.Quote) {
+	logrus.Debug("getQuote")
 	// Start a new opentracing child span
 	child := tracing.StartSpanFromContextWithLogEvent(ctx, "getQuote", "Client send")
 	defer tracing.CloseSpan(child, "Client Receive")
@@ -89,11 +91,12 @@ func getQuote(ctx context.Context) (model.Quote) {
 	}
 }
 
-func getImageUrl(ctx context.Context, accountId string) (string) {
+func getImageUrl(ctx context.Context, accountID string) (string) {
+	logrus.Debugf("getImageUrl: %s", accountID)
 	child := tracing.StartSpanFromContextWithLogEvent(ctx, "getImageUrl", "Client send")
 	defer tracing.CloseSpan(child, "Client Receive")
 
-	req, err := http.NewRequest("GET", "http://imageservice:7777/accounts/" + accountId, nil)
+	req, err := http.NewRequest("GET", "http://imageservice:7777/accounts/" + accountID, nil)
 	body, err := cb.CallUsingCircuitBreaker(ctx, "imageservice", req)
 	if err == nil {
 		return string(body)

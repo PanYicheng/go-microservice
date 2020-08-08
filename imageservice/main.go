@@ -25,13 +25,15 @@ package main
 
 import (
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 	"github.com/sirupsen/logrus"
 	"github.com/PanYicheng/go-microservice/common/config"
 	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 	"github.com/PanYicheng/go-microservice/imageservice/service"
 	"github.com/spf13/viper"
-	"sync"
-	"time"
 )
 
 var appName = "imageservice"
@@ -60,16 +62,18 @@ func init() {
 func main() {
 	logrus.Infof("Starting %v", appName)
 
-	start := time.Now().UTC()
 	config.LoadConfigurationFromBranch(viper.GetString("configServerUrl"), appName, viper.GetString("profile"), viper.GetString("configBranch"))
 	initializeMessaging()
-	go service.StartWebServer(viper.GetString("server_port")) // Starts HTTP service  (async)
+	initializeTracing()
 
-	logrus.Infof("Started %v in %v", appName, time.Now().UTC().Sub(start))
-	// Block...
-	wg := sync.WaitGroup{} // Use a WaitGroup to block main() exit
-	wg.Add(1)
-	wg.Wait()
+	// Makes sure connection is closed when service exits.
+	handleSigterm(func() {
+		if service.MessagingClient != nil {
+			service.MessagingClient.Close()
+		}
+	})
+
+	service.StartWebServer(viper.GetString("server_port")) // Starts HTTP service  (async)
 }
 
 func initializeMessaging() {
@@ -80,4 +84,19 @@ func initializeMessaging() {
 	service.MessagingClient = &messaging.MessagingClient{}
 	service.MessagingClient.ConnectToBroker(viper.GetString("amqp_server_url"))
 	service.MessagingClient.Subscribe(viper.GetString("config_event_bus"), "topic", appName, config.HandleRefreshEvent)
+}
+
+func initializeTracing() {
+	tracing.InitTracing(viper.GetString("zipkin_server_url"), appName)
+}
+
+func handleSigterm(handleExit func()) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM)
+	go func() {
+		<-c
+		handleExit()
+		os.Exit(1)
+	}()
 }

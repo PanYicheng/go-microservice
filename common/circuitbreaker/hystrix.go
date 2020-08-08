@@ -31,8 +31,8 @@ func CallUsingCircuitBreaker(ctx context.Context, breakerName string, req *http.
 	errors := hystrix.Go(
 		breakerName,
 		func() error {
-			tracing.AddTracingToReqFromContext(ctx, req)
-			err := callWithRetries(req, output)
+			//tracing.AddTracingToReqFromContext(ctx, req)
+			err := callWithRetries(req.WithContext(ctx), output)
 			// For hystrix, forward the err from the retrier. It's nil if OK.
 			return err
 		},
@@ -60,7 +60,8 @@ func callWithRetries(req *http.Request, output chan []byte) error {
 	attempt := 0
 	err := r.Run(func() error {
 		attempt++
-		resp, err := Client.Do(req)
+		//resp, err := Client.Do(req)
+		resp, err := tracing.TracingClient.DoWithAppSpan(req, req.Host)
 		if err == nil && resp.StatusCode < 299 {
 			responseBody, err := ioutil.ReadAll(resp.Body)
 			if err == nil {

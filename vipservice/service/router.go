@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 )
 
 // NewRouter is the function that returns a pointer to a mux.Router we can use as a handler.
@@ -16,5 +17,6 @@ func NewRouter() *mux.Router {
 			Name(route.Name).
 			Handler(route.HandlerFunc)
 	}
+	router.Use(tracing.ServerMiddleware)
 	return router
 }

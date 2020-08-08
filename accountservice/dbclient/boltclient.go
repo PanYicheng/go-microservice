@@ -79,9 +79,11 @@ func (bc *BoltClient) seedAccounts() {
 // QueryAccount query the account in BoltDB
 func (bc *BoltClient) QueryAccount(ctx context.Context, accountId string) (model.Account, error) {
 
+	logrus.Debugf("BoltClient QueryAccount: %v", accountId)
 	// Tracing code.
 	span := tracing.StartChildSpanFromContext(ctx, "QueryAccount")
-	defer span.Finish()
+	defer tracing.CloseSpan(span, "QueryAccount Finished")
+	//tracing.LogEventToOngoingSpan(ctx, "BoltClient Event test")
 
 	// Allocate an empty Account instance we'll let json.Unmarhal populate for us in a bit.
 	account := model.Account{}

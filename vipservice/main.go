@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"github.com/PanYicheng/go-microservice/common/config"
 	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/PanYicheng/go-microservice/common/tracing"
 	"github.com/PanYicheng/go-microservice/vipservice/service"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
@@ -47,6 +48,7 @@ func main() {
 		viper.GetString("profile"),
 		viper.GetString("configBranch"))
 	initializeMessaging()
+	initializeTracing()
 	// Makes sure connection is closed when service exits.
 	handleSigterm(func() {
 		if service.MessagingClient != nil {
@@ -76,6 +78,10 @@ func initializeMessaging() {
 	if err != nil {
 		logrus.Println("Could not start subscribe to vip_queue")
 	}
+}
+
+func initializeTracing() {
+	tracing.InitTracing(viper.GetString("zipkin_server_url"), appName)
 }
 
 func handleSigterm(handleExit func()) {

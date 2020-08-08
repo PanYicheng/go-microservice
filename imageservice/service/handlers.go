@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+	"encoding/json"
 	"image"
 	"fmt"
 	"strconv"
@@ -9,10 +10,15 @@ import (
 	"bytes"
 	"github.com/gorilla/mux"
 	"github.com/PanYicheng/go-microservice/common/messaging"
+	"github.com/PanYicheng/go-microservice/common/util"
 	"github.com/sirupsen/logrus"
 )
 
 var MessagingClient messaging.IMessagingClient
+type AccountImage struct {
+	URL string `json:"url"`
+	ServedBy string `json:"servedBy"`
+}
 
 /**
  * Takes the POST body, decodes, processes and finally writes the result to the response.
@@ -28,11 +34,19 @@ func ProcessImage(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAccountImage(w http.ResponseWriter, r *http.Request) {
-	data := []byte("http://imageservice:7777/file/cake.jpg")
-	w.Header().Set("Content-Type", "text/plain")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	accountImage := AccountImage{
+        URL: "http://imageservice:7777/file/cake.jpg",
+        ServedBy: util.GetIP(),
+    }
+    data, err := json.Marshal(&accountImage)
+    if err != nil {
+        writeServerError(w, err.Error())
+    } else {
+        w.Header().Set("Content-Type", "text/plain")
+        w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+        w.WriteHeader(http.StatusOK)
+        w.Write(data)
+    }
 }
 
 /**

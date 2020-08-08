@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/gorilla/mux"
-	"net/http"
+	//"net/http"
 	"github.com/PanYicheng/go-microservice/common/tracing"
 )
 
@@ -10,25 +10,25 @@ import (
 func NewRouter() *mux.Router {
 	// Create an instance of the Gorilla router
 	router := mux.NewRouter().StrictSlash(true)
-	//router.Use(tracing.ServerMiddleware)
 	// Iterate over the routes we declared in routes.go and attach them to the router instance
 	for _, route := range routes {
 		// Attach each route, uses a Builder-like pattern to set each route up.
 		router.Methods(route.Method).
 			Path(route.Pattern).
 			Name(route.Name).
-			//HandlerFunc(route.HandlerFunc)
-			Handler(loadTracing(route.HandlerFunc))
+			HandlerFunc(route.HandlerFunc)
+			//Handler(loadTracing(route.HandlerFunc))
 	}
+	router.Use(tracing.ServerMiddleware)
 	return router
 }
 
-func loadTracing(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-        span := tracing.StartHTTPTrace(req, "GetAccount")
-        defer span.Finish()
-
-        ctx := tracing.UpdateContext(req.Context(), span)
-        next.ServeHTTP(rw, req.WithContext(ctx))
-    })
-}
+//func loadTracing(next http.Handler) http.Handler {
+//    return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+//        span := tracing.StartHTTPTrace(req, "GetAccount")
+//        defer span.Finish()
+//
+//        ctx := tracing.UpdateContext(req.Context(), span)
+//        next.ServeHTTP(rw, req.WithContext(ctx))
+//    })
+//}

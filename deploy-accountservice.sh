@@ -8,7 +8,7 @@ export CGO_ENABLED=0
 # Go Build accountservice
 cd accountservice;go get;go build -o accountservice-$GOOS-$GOARCH; echo "  built `pwd`";cd ..
 # Go Build healthchecker binary
-cd healthchecker;go get;go build -o healthchecker-$GOOS-$GOARCH; echo "  built `pwd`";cd ..
+# cd healthchecker;go get;go build -o healthchecker-$GOOS-$GOARCH; echo "  built `pwd`";cd ..
 
 # Docker Build accountservice
 cp healthchecker/healthchecker-$GOOS-$GOARCH accountservice/

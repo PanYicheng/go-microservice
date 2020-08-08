@@ -11,6 +11,8 @@ cd accountservice;go get;go build -o accountservice-$GOOS-$GOARCH; echo "  built
 cd healthchecker;go get;go build -o healthchecker-$GOOS-$GOARCH; echo "  built `pwd`";cd ..
 # Go Build vipservice
 cd vipservice;go get;go build -o vipservice-$GOOS-$GOARCH; echo "  built `pwd`";cd ..
+# Go Build imageservice
+cd imageservice;go get;go build -o imageservice-$GOOS-$GOARCH; echo "  built `pwd`";cd ..
 
 # Docker Build accountservice
 cp healthchecker/healthchecker-$GOOS-$GOARCH accountservice/
