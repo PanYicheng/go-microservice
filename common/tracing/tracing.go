@@ -37,7 +37,7 @@ func InitTracing(zipkinURL string, serviceName string) {
 	reporter := httpreporter.NewReporter(
 		spanUrl,
 		httpreporter.RequestCallback(func (r *http.Request) {
-			logrus.Infof("Reporter Method: %s, Url: %s, Length: %v", r.Method, r.URL, r.ContentLength)
+			logrus.Debugf("Reporter Method: %s, Url: %s, Length: %v", r.Method, r.URL, r.ContentLength)
 		}),)
 	//reporter := zipkinlogreporter.NewReporter(log.New(os.Stderr, "", log.LstdFlags))
 
@@ -62,7 +62,8 @@ func InitTracing(zipkinURL string, serviceName string) {
 	ServerMiddleware = httpmiddleware.NewServerMiddleware(
 		nativeTracer,
 		httpmiddleware.TagResponseSize(true),
-	)	
+		httpmiddleware.SpanName(serviceName),
+	)
 
 	//opentracing.SetGlobalTracer(zipkinot.Wrap(nativeTracer))
 	//tracer = zipkinot.Wrap(nativeTracer)

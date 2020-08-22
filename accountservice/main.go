@@ -21,6 +21,7 @@ var appName = "accountservice"
 
 // Init function, runs before main()
 func init() {
+	viper.Set("service_name", appName)
 	// Read command line flags
 	profile := flag.String("profile", "test", "Environment profile, something similar to spring profiles")
 	configServerUrl := flag.String("configServerUrl", "", "Address to config server")
@@ -37,7 +38,7 @@ func init() {
 			TimestampFormat: "2006-01-02T15:04:05.000",
 			FullTimestamp:   true,
 		})
-		logrus.SetLevel(logrus.DebugLevel)
+		logrus.SetLevel(logrus.InfoLevel)
 	} else {
 		logrus.SetFormatter(&logrus.JSONFormatter{})
 	}

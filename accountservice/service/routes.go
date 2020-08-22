@@ -1,18 +1,10 @@
 package service
 
-import "net/http"
-
-// Route defines a single route, e.g. a human readable name, HTTP method and the
-// pattern the function that will execute when the route is called.
-type Route struct {
-	Name        string
-	Method      string
-	Pattern     string
-	HandlerFunc http.HandlerFunc
-}
-
-// Routes defines the type Routes which is just an array (slice) of Route structs.
-type Routes []Route
+import (
+	// "net/http"
+	. "github.com/PanYicheng/go-microservice/common/router"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
 
 // Initialize our routes
 var routes = Routes{
@@ -21,17 +13,27 @@ var routes = Routes{
 		"GET",                   // HTTP method
 		"/accounts/{accountId}", // Route pattern
 		GetAccount,
+		true,
 	},
 	Route{
 		"HealthCheck",
 		"GET",
 		"/health",
 		HealthCheck,
+		false,
 	},
 	Route{
 		"Testability",
 		"GET",
 		"/testability/healthy/{state}",
 		SetHealthyState,
+		false,
 	},
+	Route{
+        "Prometheus",
+        "GET",
+        "/metrics",
+        promhttp.Handler().ServeHTTP,
+        false,
+    },
 }

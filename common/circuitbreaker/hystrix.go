@@ -1,7 +1,7 @@
 package circuitbreaker
 
 import (
-	"context"
+	//"context"
 	"encoding/json"
 	"fmt"
 	"github.com/PanYicheng/go-microservice/common/messaging"
@@ -26,13 +26,13 @@ var Client http.Client
 
 var RETRIES = 3
 
-func CallUsingCircuitBreaker(ctx context.Context, breakerName string, req *http.Request) ([]byte, error) {
+func CallUsingCircuitBreaker(breakerName string, req *http.Request) ([]byte, error) {
 	output := make(chan []byte, 1)
 	errors := hystrix.Go(
 		breakerName,
 		func() error {
 			//tracing.AddTracingToReqFromContext(ctx, req)
-			err := callWithRetries(req.WithContext(ctx), output)
+			err := callWithRetries(req, output)
 			// For hystrix, forward the err from the retrier. It's nil if OK.
 			return err
 		},

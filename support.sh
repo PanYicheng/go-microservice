@@ -43,3 +43,20 @@ docker service create \
 #docker build -t unusedprefix/edge-server support/edge-server/
 #docker service rm edge-server
 #docker service create --replicas 1 --name configserver -p 8765:8765 --network my_network --update-delay 10s --with-registry-auth  --update-parallelism 1 unusedprefix/edge-server
+
+# Prometheus
+docker build -t unusedprefix/prometheus support/prometheus
+docker service rm prometheus
+docker service create -p 9090:9090 --constraint node.role==manager --mount type=volume,source=swarm-endpoints,target=/etc/swarm-endpoints/,volume-driver=local --name=prometheus --replicas=1 --network=my_network unusedprefix/prometheus
+
+# swarm-prometheus-discovery
+export GOOS=linux
+export GOARCH=amd64
+# Set to use static linking
+export CGO_ENABLED=0
+
+cd swarm-prometheus-discovery;go get;go build -o swarm-prometheus-discovery-${GOOS}-${GOARCH};echo built `pwd`;cd ..
+
+docker build -t unusedprefix/swarm-prometheus-discovery swarm-prometheus-discovery/
+docker service rm swarm-prometheus-discovery
+docker service create  --constraint node.role==manager --mount type=volume,source=swarm-endpoints,target=/etc/swarm-endpoints/,volume-driver=local --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --name=swarm-prometheus-discovery --replicas=1 --network=my_network unusedprefix/swarm-prometheus-discovery

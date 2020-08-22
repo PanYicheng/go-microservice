@@ -80,8 +80,8 @@ func getQuote(ctx context.Context) (model.Quote) {
 	defer tracing.CloseSpan(child, "Client Receive")
 
 	// Create the http request and pass it to the circuit breaker
-	req, err := http.NewRequest("GET", "http://quotes-service:8080/api/quote?strength=4", nil)
-	body, err := cb.CallUsingCircuitBreaker(ctx, "quotes-service", req)
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://quotes-service:8080/api/quote?strength=4", nil)
+	body, err := cb.CallUsingCircuitBreaker("quotes-service", req)
 	if err == nil {
 		quote := model.Quote{}
 		json.Unmarshal(body, &quote)
@@ -96,8 +96,8 @@ func getImageUrl(ctx context.Context, accountID string) (string) {
 	child := tracing.StartSpanFromContextWithLogEvent(ctx, "getImageUrl", "Client send")
 	defer tracing.CloseSpan(child, "Client Receive")
 
-	req, err := http.NewRequest("GET", "http://imageservice:7777/accounts/" + accountID, nil)
-	body, err := cb.CallUsingCircuitBreaker(ctx, "imageservice", req)
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://imageservice:7777/accounts/" + accountID, nil)
+	body, err := cb.CallUsingCircuitBreaker("imageservice", req)
 	if err == nil {
 		return string(body)
     } else {
