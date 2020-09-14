@@ -130,12 +130,13 @@ func standardTest() {
 		Log.Println("Using HTTPS through ZUUL")
 		url = "https://" + baseAddr + ":8765/api/accounts/"
 	} else {
-		url = "http://" + baseAddr + ":6767/accounts/"
+		url = "http://" + baseAddr + ":6767/"
 	}
 	m := make(map[string]interface{})
 	for {
-		accountId := rand.Intn(99) + 10000
-		serviceUrl := url + strconv.Itoa(accountId)
+		//accountId := rand.Intn(99) + 10000
+		//serviceUrl := url + strconv.Itoa(accountId)
+		serviceUrl := url
 
 		var DefaultTransport http.RoundTripper = &http.Transport{
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
