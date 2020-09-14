@@ -1,0 +1,11 @@
+{
+    "Name": "serviceb",
+    "Port": "6767",
+    "Concurrency": false,
+    "CallList": [
+        "servicec:6767",
+        "servicee:6767"
+    ],
+    "ResponseTime": 20,
+    "Instances": 1
+}

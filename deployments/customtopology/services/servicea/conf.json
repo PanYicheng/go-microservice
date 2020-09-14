@@ -1,0 +1,11 @@
+{
+    "Name": "servicea",
+    "Port": "6767",
+    "Concurrency": true,
+    "CallList": [
+        "serviceb:6767",
+        "serviced:6767"
+    ],
+    "ResponseTime": 10,
+    "Instances": 1
+}

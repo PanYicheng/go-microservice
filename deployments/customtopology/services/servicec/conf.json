@@ -1,0 +1,8 @@
+{
+    "Name": "servicec",
+    "Port": "6767",
+    "Concurrency": false,
+    "CallList": null,
+    "ResponseTime": 30,
+    "Instances": 1
+}

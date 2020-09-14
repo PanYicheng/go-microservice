@@ -1,0 +1,43 @@
+[
+    {
+        "Name": "servicea",
+        "Port": "6767",
+        "Concurrency": true,
+        "CallList": [
+            "serviceB", "serviceD"
+        ],
+        "ResponseTime": 10,
+        "Instances": 1
+    },
+    {
+        "Name": "serviceb",
+        "Port": "6767",
+        "CallList": [
+            "serviceC", "serviceE"
+        ],
+        "ResponseTime": 20,
+        "Instances": 1
+    },
+    {
+        "Name": "servicec",
+        "Port": "6767",
+        "ResponseTime": 30,
+        "Instances": 1
+    },
+    {
+        "Name": "serviced",
+        "Port": "6767",
+        "CallList": [
+            "serviceE"
+        ],
+        "ResponseTime": 40,
+        "Instances": 1
+    },
+    {
+        "Name": "servicee",
+        "Port": "6767",
+        "ResponseTime": 50,
+        "Instances": 1
+    }
+]
+
