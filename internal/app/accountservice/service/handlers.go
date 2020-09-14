@@ -21,18 +21,11 @@ var DBClient dbclient.IBoltClient
 
 // MessagingClient acts as messaging queue client
 var MessagingClient messaging.IMessagingClient
-var client = &http.Client{}
 
 var fallbackQuote = model.Quote{
 	Language: "en",
 	ServedBy: "circuit-breaker",
-	Text:     "May the source be with you, always."}
-
-func init() {
-	var transport http.RoundTripper = &http.Transport{
-		DisableKeepAlives: true,
-	}
-	client.Transport = transport
+	Text:     "May the source be with you, always.",
 }
 
 // GetAccount handlers http request of /accounts/xxx

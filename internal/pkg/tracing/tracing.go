@@ -14,7 +14,7 @@ import (
 	//"log"
 	//"os"
 	//zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
-	"github.com/PanYicheng/go-microservice/internal/pkg/route"
+	. "github.com/PanYicheng/go-microservice/internal/pkg/route"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -72,9 +72,10 @@ func InitTracing(zipkinURL string, serviceName string) {
 	logrus.Infof("Successfully started zipkin tracer for service '%v'", serviceName)
 }
 
-// WithTracing sets up zipkin tracing for given HTTP handler if route.Trace is true.
-func WithTracing(next http.HandlerFunc, route route.Route) http.HandlerFunc {
-	if !route.Trace{
+// WithTracing sets up zipkin tracing for given HTTP handler if r.Trace is true.
+func WithTracing(next http.HandlerFunc, r Route) http.HandlerFunc {
+	logrus.Debugf("WithTracing called on route %s.\n", r.Name)
+	if !r.Trace{
 		return next
 	}
 	return ServerMiddleware(next).ServeHTTP

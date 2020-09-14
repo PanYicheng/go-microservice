@@ -1,7 +1,11 @@
 #!/bin/bash
 # set -e
+echo "Deploying support services..."
+# ROOT_DIR="$(dirname `pwd`)"
+ROOT_DIR=/home/pyc/gopath/src/github.com/PanYicheng/go-microservice
+source ${ROOT_DIR}/scripts/env_vars.sh
 
-SUPPORT_DIR=../deployments
+SUPPORT_DIR=${ROOT_DIR}/deployments
 # RabbitMQ
 docker service rm rabbitmq
 docker build -t unusedprefix/rabbitmq ${SUPPORT_DIR}/rabbitmq/
@@ -53,8 +57,8 @@ docker service create -p 9090:9090 --constraint node.role==manager --mount type=
 # swarm-prometheus-discovery
 # Set to use static linking
 export CGO_ENABLED=0
-cd ../cmd/swarm-prometheus-discovery;go get;go build;echo built `pwd`;cd ../../scripts
-cp ../cmd/swarm-prometheus-discovery/swarm-prometheus-discovery ${SUPPORT_DIR}/swarm-prometheus-discovery/
+cd ${ROOT_DIR}/cmd/swarm-prometheus-discovery;go get;go build;echo built `pwd`;cd ${ROOT_DIR}/scripts
+cp ${ROOT_DIR}/cmd/swarm-prometheus-discovery/swarm-prometheus-discovery ${SUPPORT_DIR}/swarm-prometheus-discovery/
 
 docker build -t unusedprefix/swarm-prometheus-discovery ${SUPPORT_DIR}/swarm-prometheus-discovery/
 docker service rm swarm-prometheus-discovery
@@ -64,5 +68,6 @@ docker service create \
 	--mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
 	--name=swarm-prometheus-discovery --replicas=1 --network=my_network \
 	--env NETWORK_NAME=my_network \
-	--env IGNORED_SERVICE_STR=prometheus,grafana \
+	--env IGNORED_SERVICE_STR=prometheus,grafana,zipkin,swarm-prometheus-discovery,rabbitmq \
+	--env INTERVAL=15 \
 	unusedprefix/swarm-prometheus-discovery

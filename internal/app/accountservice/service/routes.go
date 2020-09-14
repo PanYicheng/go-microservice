@@ -12,9 +12,9 @@ var routes = Routes{
 		"GetAccount",            // Name
 		"GET",                   // HTTP method
 		"/accounts/{accountId}", // Route pattern
-		GetAccount,
-		true,
-		true,
+		GetAccount,              // HandlerFunc
+		true,                    // Monitor
+		true,                    // Trace
 	},
 	Route{
 		"HealthCheck",
