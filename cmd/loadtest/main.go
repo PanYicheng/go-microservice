@@ -21,36 +21,46 @@ var Log = logrus.New()
 
 var baseAddr string
 var zuul bool
+var delay int
+
+var tr http.RoundTripper = &http.Transport{
+	TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+	DisableKeepAlives: true,
+}
+var client *http.Client = &http.Client{
+	Transport: tr,
+}
 
 func main() {
 
-	usersPtr := flag.Int("users", 10, "Number of users")
-	delayPtr := flag.Int("delay", 1000, "Delay between calls per user")
-	zuulPtr := flag.Bool("zuul", true, "Route traffic through zuul")
-	baseAddrPtr := flag.String("baseAddr", "127.0.0.1", "Base address of your Swarm cluster")
+usersPtr := flag.Int("users", 10, "Number of users")
+delayPtr := flag.Int("delay", 1000, "Delay between calls per user (ms)")
+zuulPtr := flag.Bool("zuul", true, "Route traffic through zuul")
+baseAddrPtr := flag.String("baseAddr", "127.0.0.1", "Base address of your Swarm cluster")
 
-	flag.Parse()
+flag.Parse()
 
-	baseAddr = *baseAddrPtr
-	zuul = *zuulPtr
-	users := *usersPtr
-	var _ int = *delayPtr
+baseAddr = *baseAddrPtr
+zuul = *zuulPtr
+delay = *delayPtr
+users := *usersPtr
 
-	for i := 0; i < users; i++ {
-		//go securedTest()
-		go standardTest()
-	}
+for i := 0; i < users; i++ {
+	//go securedTest()
+	go standardTest()
+}
 
-	// Block...
-	wg := sync.WaitGroup{} // Use a WaitGroup to block main() exit
-	wg.Add(1)
-	wg.Wait()
+// Block...
+wg := sync.WaitGroup{} // Use a WaitGroup to block main() exit
+wg.Add(1)
+fmt.Println("Wait at waitgroup.")
+wg.Wait()
 
 }
 
 func getToken() string {
 
-	data := url.Values{}
+data := url.Values{}
 	data.Set("grant_type", "password")
 	data.Add("client_id", "acme")
 	data.Add("scope", "webshop")
@@ -134,23 +144,20 @@ func standardTest() {
 	}
 	m := make(map[string]interface{})
 	for {
+		time.Sleep(time.Millisecond * time.Duration(delay))
+		fmt.Print(".")
 		//accountId := rand.Intn(99) + 10000
 		//serviceUrl := url + strconv.Itoa(accountId)
 		serviceUrl := url
 
-		var DefaultTransport http.RoundTripper = &http.Transport{
-			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
-			DisableKeepAlives: false,
-		}
 		req, _ := http.NewRequest("GET", serviceUrl, nil)
-		resp, err := DefaultTransport.RoundTrip(req)
+		resp, err := client.Do(req)
 
 		if err != nil {
 			panic(err)
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		printPretty(body, m)
-		time.Sleep(time.Second * 1)
 	}
 
 }
