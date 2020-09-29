@@ -36,12 +36,19 @@ type CircuitInfo struct {
 
 var (
 	deployFd *os.File
+	removeFd *os.File
 )
 
-var cfg struct {
+var cfg Config
+
+type Config struct {
 	ConfigFile string `arg:"env:CONF_FILE" default:"../../deployments/customtopology/config.json" help:"service topology file name"`
 	ScriptDir string `arg:"env:SCRIPT_DIR" default:"../../scripts"`
 	PublishedService string `arg:"env" default:"servicea"`
+	UseSwarm bool `arg:"env" default:"false"`
+	SshVolHost string `arg:"env" help:"The remote host ip address for shared ssh volume"`
+	SshVolPath string `arg:"env" help:"The path in remote host for shared ssh volume"`
+	SshVolPasswd string `arg:"env" help:"The password of ssh into the remote host"`
 }
 
 func main() {
@@ -60,6 +67,14 @@ func main() {
 		logrus.Fatal(err)
 	}
 	defer deployFd.Close()
+
+	// Open service remove script file for writing. 
+	removeFd, err = os.OpenFile(filepath.Join(cfg.ScriptDir, "remove_customservices.sh"),
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0744)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	defer removeFd.Close()
 
 	// Read service configs from config file.
 	newServices, err := parseServices(cfg.ConfigFile)
@@ -97,7 +112,7 @@ func main() {
 	}
 	logrus.WithField("ServiceNames", serviceNames).Infoln("new services required deploying")
 
-	generateCode("../../deployments/customtopology", newCreateServices)
+	generateCode("../../deployments/customtopology", newCreateServices, cfg.UseSwarm)
 
 	copyFile(cfg.ConfigFile, filepath.Join("../../deployments/customtopology", "backup.json"))
 }
@@ -209,7 +224,7 @@ func isSliceEqual(a []string, b []string) bool {
 }
 
 // generateCode generates both the configuration files and deploy script for given services. 
-func generateCode(deployDir string, services []Service) {
+func generateCode(deployDir string, services []Service, useSwarm bool) {
 
 	for i, service := range services {
 		logrus.Infof("Handling the %d th service: %s\n", i, service.Name)
@@ -294,10 +309,20 @@ func generateCode(deployDir string, services []Service) {
 		if service.Name == cfg.PublishedService {
 			str4 = str4 + " -p=" + service.Port + ":" + service.Port
 		}
-		str4 = str4 + " --mount type=bind,source=" + filepath.Join(wd, deployDir, "/services/" + service.Name) + ",target=/data/" + " unusedprefix/customservice\n\n"
+		if useSwarm {
+			str4 = str4 + " --mount type=volume,source=" + "ssh-vol-" + service.Name + ",target=/data/" + 
+				",volume-driver=vieux/sshfs,volume-opt=sshcmd=ics@162.105.89.10:" + "/home/ics/vol-test/services/" + service.Name + ",volume-opt=password=ics1800"
+		} else {
+			str4 = str4 + " --mount type=bind,source=" + filepath.Join(wd, deployDir, "/services/" + service.Name) + ",target=/data/"
+		}
+		str4 += " unusedprefix/customservice\n\n"
 		// str = str1 + str2 + str3 + str4
 		str := str3 + str4
 		_, err = deployFd.Write([]byte(str))
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		_, err = removeFd.Write([]byte(str3))
 		if err != nil {
 			logrus.Fatal(err)
 		}
