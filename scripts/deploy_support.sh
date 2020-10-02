@@ -52,7 +52,10 @@ docker service create \
 # Prometheus
 docker build -t unusedprefix/prometheus ${SUPPORT_DIR}/prometheus
 docker service rm prometheus
-docker service create -p 9090:9090 --constraint node.role==manager --mount type=volume,source=swarm-endpoints,target=/etc/swarm-endpoints/,volume-driver=local --name=prometheus --replicas=1 --network=my_network unusedprefix/prometheus
+docker service create -p 9090:9090 --constraint node.role==manager \
+	--mount type=volume,source=swarm-endpoints,target=/etc/swarm-endpoints/,volume-driver=local \
+	--mount type=volume,source=prometheus-data,target=/prometheus \
+	--name=prometheus --replicas=1 --network=my_network unusedprefix/prometheus
 
 # swarm-prometheus-discovery
 # Set to use static linking
