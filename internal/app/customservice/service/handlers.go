@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sync"
+	"fmt"
 	"os"
 	"context"
 	"encoding/json"
@@ -13,7 +14,8 @@ import (
 	"time"
 	. "github.com/PanYicheng/go-microservice/internal/app/customservice/model"
 	"github.com/PanYicheng/go-microservice/internal/pkg/netutil"
-	// "github.com/PanYicheng/go-microservice/internal/pkg/tracing"
+	"github.com/PanYicheng/go-microservice/internal/pkg/tracing"
+	"github.com/openzipkin/zipkin-go"
 	cb "github.com/PanYicheng/go-microservice/internal/pkg/circuitbreaker"
 	"github.com/afex/hystrix-go/hystrix"
 	"github.com/gorilla/mux"
@@ -32,17 +34,19 @@ func init() {
 // Index is the main HTTP handler function. It calls all children services, sequentailly or concurrently.
 func Index(w http.ResponseWriter, r *http.Request) {
 	// Create zipkin spans.
-	// span := getSpan(r)
-	// defer span.Finish()
+	span := tracing.StartChildSpanFromContext(r.Context(), "Index")
+	defer span.Finish()
 
 	// 模拟服务响应时间
+	child := tracing.StartChildSpanFromContext(zipkin.NewContext(r.Context(), span), "SleepFunc")
 	time.Sleep(time.Millisecond * time.Duration(ServiceConfig.ResponseTime))
+	tracing.CloseSpan(child, "Sleep Ends.")
 
 	var response Response
 	if ServiceConfig.Concurrency == true {
-		response = subIndexConcurrency(r.Context())
+		response = subIndexConcurrency(zipkin.NewContext(r.Context(), span))
 	} else {
-		response = subIndexSequential(r.Context())
+		response = subIndexSequential(zipkin.NewContext(r.Context(), span))
 	}
 	response.ServiceName = ServiceConfig.Name
 	response.Ip = netutil.GetOutboundIP()
@@ -52,9 +56,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 // getOneChild gets responses from one child service specified in srvAddr.
 func getOneChild(ctx context.Context, srvAddr string) Response {
-	logrus.Debugf("Calling child service: %s", srvAddr)
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+srvAddr, nil)
-	body, err := cb.CallUsingCircuitBreaker(ServiceConfig.Name+"To"+srvAddr, req)
+	// The fallback response when error happens.
 	var childResp = Response{
 		ServiceName: srvAddr,
 		Ip: "fallback IP",
@@ -62,6 +64,23 @@ func getOneChild(ctx context.Context, srvAddr string) Response {
 		ErrorInfo: "",
 		Children: nil,
 	}
+	logrus.Debugf("Calling child service: %s", srvAddr)
+
+	// Start a new tracing child span
+	child := tracing.StartSpanFromContextWithLogEvent(ctx,
+		fmt.Sprintf("getOneChild(%s)", srvAddr),
+		"Client send")
+	// child := tracing.SpanFromContext(ctx)
+	defer tracing.CloseSpan(child, "Client Receive")
+
+	req, err := http.NewRequest("GET", "http://"+srvAddr, nil)
+	if err != nil {
+		logrus.Error(err.Error())
+		return childResp
+	}
+	newCtx := zipkin.NewContext(req.Context(), child)
+	req = req.WithContext(newCtx)
+	body, err := cb.CallUsingCircuitBreaker(ServiceConfig.Name+"To"+srvAddr, req)
 	if err == nil {
 		err := json.Unmarshal(body, &childResp)
 		if err != nil {

@@ -1,8 +1,0 @@
-{
-    "Name": "servicee",
-    "Port": "6767",
-    "Concurrency": false,
-    "CallList": null,
-    "ResponseTime": 50,
-    "Instances": 1
-}

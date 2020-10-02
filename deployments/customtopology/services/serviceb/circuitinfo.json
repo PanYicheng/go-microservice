@@ -1,8 +1,0 @@
-{
-    "Name": "AtoB",
-    "Timeout": 1000,
-    "MaxConcurrentRequests": 1000,
-    "SleepWindow": 5000,
-    "ErrorPercentThreshold": 5,
-    "RequestVolumeThreshold": 5
-}

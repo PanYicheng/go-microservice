@@ -54,7 +54,7 @@ func InitTracing(zipkinURL string, serviceName string) {
 	}
 
 	// create zipkin traced http client
-	client, err := httpmiddleware.NewClient(nativeTracer, httpmiddleware.ClientTrace(false))
+	client, err := httpmiddleware.NewClient(nativeTracer, httpmiddleware.ClientTrace(true))
 	if err != nil {
 		logrus.Fatalf("unable to create client: %+v", err)
 	}
@@ -165,6 +165,12 @@ func WithTracing(next http.HandlerFunc, r Route) http.HandlerFunc {
 //	return child
 //}
 //
+
+// SpanFromContext gets zipkin span from http request.
+func SpanFromContext(ctx context.Context) zipkin.Span {
+	return zipkin.SpanFromContext(ctx)
+}
+
 // StartChildSpanFromContext starts a child span from span within the supplied context, if available.
 func StartChildSpanFromContext(ctx context.Context, opName string) zipkin.Span {
 	logrus.Debugf("StartChildSpanFromContext Span: %s", opName)
@@ -186,7 +192,7 @@ func StartSpanFromContextWithLogEvent(ctx context.Context, opName string, logSta
 	//span := ctx.Value("opentracing-span").(opentracing.Span)
 	//child := tracer.StartSpan(opName, ext.RPCServerOption(span.Context()))
 	//child.LogEvent(logStatement)
-//	child, _ := tracer.StartSpanFromContext(ctx, opName,)
+	//child, _ := tracer.StartSpanFromContext(ctx, opName,)
 
 	child := StartChildSpanFromContext(ctx, opName)
 	child.Annotate(time.Now(), logStatement)
