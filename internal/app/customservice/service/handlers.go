@@ -23,6 +23,7 @@ import (
 
 var client = &http.Client{}
 var ServiceConfig Service
+var delay int
 
 func init() {
 	var transport http.RoundTripper = &http.Transport{
@@ -39,7 +40,8 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 	// 模拟服务响应时间
 	child := tracing.StartChildSpanFromContext(zipkin.NewContext(r.Context(), span), "SleepFunc")
-	time.Sleep(time.Millisecond * time.Duration(ServiceConfig.ResponseTime))
+	processTime := int(ServiceConfig.ResponseTime) + delay
+	time.Sleep(time.Millisecond * time.Duration(processTime))
 	tracing.CloseSpan(child, "Sleep Ends.")
 
 	var response Response
@@ -334,4 +336,23 @@ func SetHealthyState(w http.ResponseWriter, r *http.Request) {
 	// Otherwise, mutate the package scoped "isHealthy" variable.
 	isHealthy = state
 	w.WriteHeader(http.StatusOK)
+}
+
+// Set service internal sleep delay temporarily
+func SetDelay(w http.ResponseWriter, r *http.Request) {
+	valStr, ok := r.URL.Query()["value"]
+	if !ok || len(valStr) == 0 {
+		w.WriteHeader(400)
+		return
+	}
+
+	valInt, err := strconv.Atoi(valStr[0])
+	if err != nil {
+		w.WriteHeader(400) // Bad Request
+		return
+	}
+
+	delay = valInt
+	logrus.Infof("Delay adjusted to %d ms \n", delay)
+	w.WriteHeader(200)
 }
