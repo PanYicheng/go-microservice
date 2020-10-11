@@ -49,9 +49,9 @@ type Config struct {
 	SshVolHost string `arg:"env" help:"The remote host ip address for shared ssh volume"`
 	SshVolPath string `arg:"env" help:"The path in remote host for shared ssh volume"`
 	SshVolPasswd string `arg:"env" help:"The password of ssh into the remote host"`
+	BasePortNumber int `arg:"env" default:"10000" help:"Base port number for service to publish on"`
+	DetachedMode bool `arg:"env" default:"false" help:"Whether to create service in detached mode which skips convergence confirmation(faster, but less stable)"`
 }
-
-const BasePortNumber = 10000
 
 func main() {
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -306,9 +306,12 @@ func generateCode(deployDir string, services []Service, useSwarm bool) {
 		instances := fmt.Sprintf("%d", int(service.Instances))
 		wd, _ := os.Getwd()
 		str4 := "docker service create --name=" + service.Name + " --replicas=" + instances
+		if cfg.DetachedMode {
+			str4 += " -d" //Exit immediately instead of waiting for the service to converge
+		}
 		str4 = str4 + " --network=my_network"
 		// Publish every service automatically
-		str4 += fmt.Sprintf(" -p=%d:%s",  BasePortNumber + i, service.Port)
+		str4 += fmt.Sprintf(" -p=%d:%s",  cfg.BasePortNumber + i, service.Port)
 		// Publish port only for this service.
 		if service.Name == cfg.PublishedService {
 			str4 = str4 + " -p=" + service.Port + ":" + service.Port
