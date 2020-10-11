@@ -16,3 +16,25 @@
 
 # Custom service topology bind locations
 deployments/customtopology/services/
+
+# Built binary
+build/package/accountservice/accountservice
+build/package/accountservice/healthchecker
+build/package/customservice/customservice
+build/package/customservice/healthchecker
+build/package/imageservice/healthchecker
+build/package/imageservice/imageservice
+build/package/vipservice/healthchecker
+build/package/vipservice/vipservice
+cmd/accountservice/accountservice
+cmd/customservice/customservice
+cmd/healthchecker/healthchecker
+cmd/imageservice/imageservice
+cmd/loadtest/loadtest
+cmd/swarm-prometheus-discovery/swarm-prometheus-discovery
+cmd/topologydeploy/topologydeploy
+cmd/vipservice/vipservice
+deployments/swarm-prometheus-discovery/swarm-prometheus-discovery
+
+# macOS
+.DS_Store
