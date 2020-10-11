@@ -51,6 +51,8 @@ type Config struct {
 	SshVolPasswd string `arg:"env" help:"The password of ssh into the remote host"`
 }
 
+const BasePortNumber = 10000
+
 func main() {
 	logrus.SetFormatter(&logrus.TextFormatter{
 		TimestampFormat: "2006-01-02T15:04:05.000",
@@ -305,6 +307,8 @@ func generateCode(deployDir string, services []Service, useSwarm bool) {
 		wd, _ := os.Getwd()
 		str4 := "docker service create --name=" + service.Name + " --replicas=" + instances
 		str4 = str4 + " --network=my_network"
+		// Publish every service automatically
+		str4 += fmt.Sprintf(" -p=%d:%s",  BasePortNumber + i, service.Port)
 		// Publish port only for this service.
 		if service.Name == cfg.PublishedService {
 			str4 = str4 + " -p=" + service.Port + ":" + service.Port
