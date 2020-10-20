@@ -14,7 +14,10 @@ func NewRouter(routes Routes) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 	// Iterate over the routes we declared in routes.go and attach them to the router instance
 	for _, route := range routes {
-		summaryVec := monitoring.BuildSummaryVec(route.Name, route.Method+" "+route.Pattern)
+		// Init Summary
+		summaryVec := monitoring.BuildSummaryVec(route.Name, route.Method + " " + route.Pattern + "summary")
+		// Init Histogram
+		histoVec := monitoring.BuildHistoVec(route.Name, route.Method + " " + route.Pattern + "histogram")
 
 		// Attach each route, uses a Builder-like pattern to set each route up.
 		router.Methods(route.Method).
@@ -22,7 +25,13 @@ func NewRouter(routes Routes) *mux.Router {
 			Name(route.Name).
 			HandlerFunc(
 				tracing.WithTracing(
-					monitoring.WithMonitoring(route.HandlerFunc, route, summaryVec),
+					monitoring.WithMonitoringHisto(
+						monitoring.WithMonitoringSummary(
+							route.HandlerFunc,
+							route,
+							summaryVec),
+						route,
+						histoVec),
 					route,
 				),
 			)

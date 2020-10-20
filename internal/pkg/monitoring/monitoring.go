@@ -59,14 +59,28 @@ func BuildOtherVec(name string) {
 func BuildSummaryVec(metricName string, metricHelp string) *prometheus.SummaryVec {
     summaryVec := prometheus.NewSummaryVec(
         prometheus.SummaryOpts{
-            Name:      serviceName+"_"+metricName,
-            Help:      metricHelp,
-			Objectives: map[float64]float64{0.5: 0.05, 0.9:0.01, 0.99:0.001, },
+            Name:       serviceName + "_" + metricName + "_summary",
+            Help:       metricHelp,
+			Objectives: map[float64]float64{0.5: 0.05, 0.9:0.01, 0.95: 0.005, 0.99:0.001},
+			MaxAge:     5 * time.Second, // Percentile metrics will live for 5s
         },
-        []string{"service"},
+        []string{"service_summary"},
     )
     prometheus.Register(summaryVec)
     return summaryVec
+}
+
+func BuildHistoVec(metricName string, metricHelp string) *prometheus.HistogramVec {
+	histoVec := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:      serviceName + "_" + metricName + "_histogram",
+			Help:      metricHelp,
+			Buckets:   []float64{.001, .0025, .005, .0075, .01, .025, .05, .075, .1, .25, .5, .75, 1, 1.5, 2, 2.5, 5},
+		},
+		[]string{"service_histogram"},
+		)
+	prometheus.Register(histoVec)
+	return histoVec
 }
 
 // monitorOtherVec sets package level prometheus variables.
@@ -77,31 +91,64 @@ func monitorOtherVec() {
 	}
 }
 
-// WithMonitoring optionally adds a middleware that stores request duration and response size into the supplied
-// summaryVec
-func WithMonitoring(next http.HandlerFunc, route route.Route, summary *prometheus.SummaryVec) http.HandlerFunc {
+// WithMonitoringSummary optionally adds a middleware that stores request duration and response size
+// into the supplied summaryVec
+func WithMonitoringSummary(next http.HandlerFunc, route route.Route, summary *prometheus.SummaryVec) http.HandlerFunc {
 
-    // Just return the next handler if route shouldn't be monitored
-    if !route.Monitor {
-        return next
-    }
+	// Just return the next handler if route shouldn't be monitored
+	if !route.Monitor {
+		return next
+	}
 
-    return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		//set other prometheus vector
 		monitorOtherVec()
 
-        start := time.Now()
-        // next.ServeHTTP(rw, req)
+		start := time.Now()
+		// next.ServeHTTP(rw, req)
 		next(rw, req)
-        duration := time.Since(start)
+		duration := time.Since(start)
 
-        // Store duration of request
-        summary.WithLabelValues("duration").Observe(duration.Seconds())
+		// Store duration of request
+		summary.WithLabelValues("duration").Observe(duration.Seconds())
 
-        // Store size of response, if possible.
-        size, err := strconv.Atoi(rw.Header().Get("Content-Length"))
-        if err == nil {
-            summary.WithLabelValues("size").Observe(float64(size))
-        }
-    })
+		// Store size of response, if possible.
+		size, err := strconv.Atoi(rw.Header().Get("Content-Length"))
+		if err == nil {
+			summary.WithLabelValues("size").Observe(float64(size))
+		}
+	})
+}
+
+// WithMonitoringHisto optionally adds a middleware that stores request duration and response size
+// into the supplied histoVec
+func WithMonitoringHisto(next http.HandlerFunc, route route.Route, histo *prometheus.HistogramVec) http.HandlerFunc {
+
+	// Just return the next handler if route shouldn't be monitored
+	if !route.Monitor {
+		return next
+	}
+
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		//set other prometheus vector
+		monitorOtherVec()
+
+		start := time.Now()
+		// next.ServeHTTP(rw, req)
+		next(rw, req)
+		duration := time.Since(start)
+
+		// Store duration of request
+		histo.WithLabelValues("duration").Observe(duration.Seconds())
+
+		// Store size of response, if possible.
+		size, err := strconv.Atoi(rw.Header().Get("Content-Length"))
+		if err == nil {
+			histo.WithLabelValues("size").Observe(float64(size))
+		}
+	})
+}
+
+func UnregisterGoCollector() {
+	prometheus.Unregister(prometheus.NewGoCollector());
 }

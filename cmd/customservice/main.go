@@ -31,6 +31,8 @@ func main() {
 	logrus.Info("Reading conf.json: ", string(jsonData))
 	setCircuit()
 	tracing.InitTracing("http://zipkin:9411", service.ServiceConfig.Name)
+	// Get rid of go gc metrics in Prometheus data payload
+	monitoring.UnregisterGoCollector()
 	monitoring.BuildOtherVec(service.ServiceConfig.Name)
 
 	// go register()
