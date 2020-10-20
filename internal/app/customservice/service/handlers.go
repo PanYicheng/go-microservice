@@ -1,29 +1,31 @@
 package service
 
 import (
-	"io"
-	"io/ioutil"
-	"sync"
-	"fmt"
-	"os"
 	"context"
 	"encoding/json"
-	"github.com/sirupsen/logrus"
-	"net/http"
-	"strconv"
-	"time"
+	"fmt"
 	. "github.com/PanYicheng/go-microservice/internal/app/customservice/model"
+	cb "github.com/PanYicheng/go-microservice/internal/pkg/circuitbreaker"
 	"github.com/PanYicheng/go-microservice/internal/pkg/netutil"
 	"github.com/PanYicheng/go-microservice/internal/pkg/tracing"
-	"github.com/openzipkin/zipkin-go"
-	cb "github.com/PanYicheng/go-microservice/internal/pkg/circuitbreaker"
 	"github.com/afex/hystrix-go/hystrix"
 	"github.com/gorilla/mux"
+	"github.com/openzipkin/zipkin-go"
+	"github.com/sirupsen/logrus"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"net/http"
+	"os"
+	"strconv"
+	"sync"
+	"time"
 )
 
 var client = &http.Client{}
 var ServiceConfig Service
-var delay int
+var delayValue float32
+var delayPercent float32
 
 func init() {
 	var transport http.RoundTripper = &http.Transport{
@@ -40,7 +42,11 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 	// 模拟服务响应时间
 	child := tracing.StartChildSpanFromContext(zipkin.NewContext(r.Context(), span), "SleepFunc")
-	processTime := int(ServiceConfig.ResponseTime) + delay
+	processTime := ServiceConfig.ResponseTime
+	if rand.Float32() <= delayPercent {
+		// Adding a process delay by chance
+		processTime += float64(delayValue)
+	}
 	time.Sleep(time.Millisecond * time.Duration(processTime))
 	tracing.CloseSpan(child, "Sleep Ends.")
 
@@ -345,14 +351,25 @@ func SetDelay(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		return
 	}
-
-	valInt, err := strconv.Atoi(valStr[0])
+	valInt, err := strconv.ParseFloat(valStr[0], 32)
 	if err != nil {
 		w.WriteHeader(400) // Bad Request
 		return
 	}
 
-	delay = valInt
-	logrus.Infof("Delay adjusted to %d ms \n", delay)
+	percentStr, ok := r.URL.Query()["percent"]
+	if !ok || len(percentStr) == 0 {
+		w.WriteHeader(400)
+		return
+	}
+	percentInt, err := strconv.ParseFloat(percentStr[0], 32)
+	if err != nil || percentInt > 100 || percentInt < 0 {
+		w.WriteHeader(400) // Bad Request
+		return
+	}
+
+	delayValue = float32(valInt)
+	delayPercent = float32(percentInt) / 100
+	logrus.Infof("Delay adjusted to %.f ms(%.f%%)\n", delayValue, percentInt)
 	w.WriteHeader(200)
 }

@@ -4,6 +4,8 @@ package main
 import (
 	"github.com/sirupsen/logrus"
 	"encoding/json"
+	"math/rand"
+
 	// "fmt"
 	"github.com/PanYicheng/go-microservice/internal/app/customservice/model"
 	"github.com/PanYicheng/go-microservice/internal/app/customservice/service"
@@ -15,6 +17,8 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	logrus.SetLevel(logrus.DebugLevel)
 	jsonData, err := ioutil.ReadFile("/data/conf.json")
 	if err != nil {
