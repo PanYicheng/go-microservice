@@ -22,6 +22,7 @@ var Log = logrus.New()
 var baseAddr string
 var zuul bool
 var delay int
+var port int
 
 var tr http.RoundTripper = &http.Transport{
 	TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
@@ -37,6 +38,7 @@ usersPtr := flag.Int("users", 10, "Number of users")
 delayPtr := flag.Int("delay", 1000, "Delay between calls per user (ms)")
 zuulPtr := flag.Bool("zuul", true, "Route traffic through zuul")
 baseAddrPtr := flag.String("baseAddr", "127.0.0.1", "Base address of your Swarm cluster")
+portPtr := flag.Int("port", 6767, "Service port(only effective when zuul is not enabled)")
 
 flag.Parse()
 
@@ -44,6 +46,7 @@ baseAddr = *baseAddrPtr
 zuul = *zuulPtr
 delay = *delayPtr
 users := *usersPtr
+port = *portPtr
 
 for i := 0; i < users; i++ {
 	//go securedTest()
@@ -140,7 +143,7 @@ func standardTest() {
 		Log.Println("Using HTTPS through ZUUL")
 		url = "https://" + baseAddr + ":8765/api/accounts/"
 	} else {
-		url = "http://" + baseAddr + ":6767/"
+		url = fmt.Sprintf("http://%s:%d/", baseAddr, port)
 	}
 	m := make(map[string]interface{})
 	for {
