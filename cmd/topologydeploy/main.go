@@ -1,19 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"context"
-	"path/filepath"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/api/types"
-	"github.com/alexflint/go-arg"
-	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/alexflint/go-arg"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/sirupsen/logrus"
 )
 
 type Service struct {
@@ -42,15 +43,15 @@ var (
 var cfg Config
 
 type Config struct {
-	ConfigFile string `arg:"env:CONF_FILE" default:"../../deployments/customtopology/config.json" help:"service topology file name"`
-	ScriptDir string `arg:"env:SCRIPT_DIR" default:"../../scripts"`
+	ConfigFile       string `arg:"env:CONF_FILE" default:"../../deployments/customtopology/config.json" help:"service topology file name"`
+	ScriptDir        string `arg:"env:SCRIPT_DIR" default:"../../scripts"`
 	PublishedService string `arg:"env" default:"servicea"`
-	UseSwarm bool `arg:"env" default:"false"`
-	SshVolHost string `arg:"env" help:"The remote host ip address for shared ssh volume"`
-	SshVolPath string `arg:"env" help:"The path in remote host for shared ssh volume"`
-	SshVolPasswd string `arg:"env" help:"The password of ssh into the remote host"`
-	BasePortNumber int `arg:"env" default:"10000" help:"Base port number for service to publish on"`
-	DetachedMode bool `arg:"env" default:"false" help:"Whether to create service in detached mode which skips convergence confirmation(faster, but less stable)"`
+	UseSwarm         bool   `arg:"env" default:"false"`
+	SshVolHost       string `arg:"env" help:"The remote host ip address for shared ssh volume"`
+	SshVolPath       string `arg:"env" help:"The path in remote host for shared ssh volume"`
+	SshVolPasswd     string `arg:"env" help:"The password of ssh into the remote host"`
+	BasePortNumber   int    `arg:"env" default:"10000" help:"Base port number for service to publish on"`
+	DetachedMode     bool   `arg:"env" default:"false" help:"Whether to create service in detached mode which skips convergence confirmation(faster, but less stable)"`
 }
 
 func main() {
@@ -61,7 +62,7 @@ func main() {
 	// Read program configs from command line or environment
 	arg.MustParse(&cfg)
 
-	// Open deploy scripts file for writing. 
+	// Open deploy scripts file for writing.
 	var err error
 	deployFd, err = os.OpenFile(filepath.Join(cfg.ScriptDir, "deploy_customservices.sh"),
 		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0744)
@@ -70,7 +71,7 @@ func main() {
 	}
 	defer deployFd.Close()
 
-	// Open service remove script file for writing. 
+	// Open service remove script file for writing.
 	removeFd, err = os.OpenFile(filepath.Join(cfg.ScriptDir, "remove_customservices.sh"),
 		os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0744)
 	if err != nil {
@@ -83,7 +84,7 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	var	serviceNames []string
+	var serviceNames []string
 	for _, s := range newServices {
 		serviceNames = append(serviceNames, s.Name)
 	}
@@ -225,7 +226,7 @@ func isSliceEqual(a []string, b []string) bool {
 	return true
 }
 
-// generateCode generates both the configuration files and deploy script for given services. 
+// generateCode generates both the configuration files and deploy script for given services.
 func generateCode(deployDir string, services []Service, useSwarm bool) {
 
 	for i, service := range services {
@@ -305,24 +306,25 @@ func generateCode(deployDir string, services []Service, useSwarm bool) {
 		str3 := "docker service rm " + service.Name + "\n"
 		instances := fmt.Sprintf("%d", int(service.Instances))
 		wd, _ := os.Getwd()
-		str4 := "docker service create --name=" + service.Name + " --replicas=" + instances
+		str4 := "docker service create --cap-add=NET_ADMIN --name=" + service.Name + " --replicas=" + instances
 		if cfg.DetachedMode {
 			str4 += " -d" //Exit immediately instead of waiting for the service to converge
 		}
 		str4 = str4 + " --network=my_network"
 		// Publish every service automatically
-		str4 += fmt.Sprintf(" -p=%d:%s",  cfg.BasePortNumber + i, service.Port)
+		str4 += fmt.Sprintf(" -p=%d:%s", cfg.BasePortNumber+i, service.Port)
 		// Publish port only for this service.
 		if service.Name == cfg.PublishedService {
 			str4 = str4 + " -p=" + service.Port + ":" + service.Port
 		}
 		if useSwarm {
-			str4 = str4 + " --mount type=volume,source=" + "ssh-vol-" + service.Name + ",target=/data/" + 
-				",volume-driver=vieux/sshfs,volume-opt=sshcmd=ics@162.105.89.10:" + "/home/ics/vol-test/services/" + service.Name + ",volume-opt=password=ics1800"
+			str4 = str4 +
+				fmt.Sprintf(" --mount type=volume,source=ssh-vol-%s,target=/data/,volume-driver=vieux/sshfs,volume-opt=sshcmd=%s:%s%s,volume-opt=password=%s",
+					service.Name, cfg.SshVolHost, cfg.SshVolPath, service.Name, cfg.SshVolPasswd)
 		} else {
-			str4 = str4 + " --mount type=bind,source=" + filepath.Join(wd, deployDir, "/services/" + service.Name) + ",target=/data/"
+			str4 = str4 + " --mount type=bind,source=" + filepath.Join(wd, deployDir, "/services/"+service.Name) + ",target=/data/"
 		}
-		str4 += " unusedprefix/customservice\n\n"
+		str4 += " vmhost3.local/customservice\n\n"
 		// str = str1 + str2 + str3 + str4
 		str := str3 + str4
 		_, err = deployFd.Write([]byte(str))
