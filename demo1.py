@@ -15,8 +15,20 @@ import datetime
 import sys
 import os
 import subprocess
+import time
 from subprocess import TimeoutExpired, CalledProcessError
+import pickle
+import json
 
+from py_lib.get_prom_data import query_prom_data_range, get_query1
+
+def get_svc_names(config_file):
+    svc_names = []
+    with open(config_file, "rt") as f:
+        obj = json.loads(f.read())
+        for svc in obj:
+            svc_names.append(svc['Name'].lower())
+    return svc_names
 
 def run_cmds(args, target, cwd=None, timeout=None, env=None):
     """Run shell cmds `args` in subprocess. `target` describes the task.
@@ -38,10 +50,11 @@ if __name__ == "__main__":
         description="Demo1 microservice system incident simulation")
     parser.add_argument("--registry", type=str, default="vmhost3.local")
     parser.add_argument("--network", type=str, default="my_network")
-    parser.add_argument("--sshhost", type=str, default="pyc@vmhost3.local")
+    parser.add_argument("--sshhost", type=str, default="pyc@vmhost1.local")
     parser.add_argument("--sshpw", type=str, default="pyc5279101")
     parser.add_argument("--rootdir", type=str, default=os.getcwd())
     parser.add_argument("--pipeline", type=str, default="all")
+    parser.add_argument("--expname", type=str, default="demo1")
     parser.add_argument("--verbose", type=bool, default=True, dest='verbose')
     args = parser.parse_args()
     if args.verbose:
@@ -168,9 +181,42 @@ if __name__ == "__main__":
         except KeyboardInterrupt as e:
             run_cmds(f"docker service rm {target}", "removing service "+target)
     # endregion
+
+    sim_start = datetime.datetime.now()
+    print("The Simulation Starts at:", sim_start.strftime("%Y%m%d-%H%M%S"))
     
     # region simple incident injection
+    incident_duration = datetime.timedelta(seconds=60)
+    if args.pipeline == "all" or args.pipeline == "injection":
+        # incident_duration = datetime.timedelta(minutes=10)
+        print("{:.^80}".format("Simple incident injection (manually)"))
+        while True:
+            now = datetime.datetime.now()
+            if now - sim_start < incident_duration:
+                print("Sleeping...(Cur: {} Rem: {})".format(now.strftime("%Y%m%d-%H%M%S"), 
+                                                            str(incident_duration - (now - sim_start))), 
+                    end='\r')
+                time.sleep(1)
+            else:
+                print("")
+                print("Incident duration ends.")
+                break
     # endregion
 
     # remove services
     # run_cmds("./scripts/remove_customservices.sh", "deploying services")
+
+    # region Record simulation results
+    print("Recording simulation results.")
+    # TODO: move the following config name to the argparse
+    svc_names = get_svc_names("deployments/customtopology/config.json")
+    all_metric_data = query_prom_data_range(svc_names, get_query1, sim_start, sim_start+incident_duration, 
+        sampling_rate=1, is_summary=False, url="http://vmhost1.local:9090")
+    metric_save_name = "{}_metric_data.pkl".format(args.expname)
+    with open(metric_save_name, "wb") as f:
+        pickle.dump(all_metric_data, f)
+    with open(args.expname, "wt") as f:
+        f.write("Simulation Start   : " + sim_start.strftime("%Y%m%d-%H%M%S") + "\n")
+        f.write("Simulation Duration: " + str(incident_duration) + "\n")
+        f.write("Metric Data        : " + metric_save_name + "\n")
+    # endregion
