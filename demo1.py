@@ -19,6 +19,7 @@ import time
 from subprocess import TimeoutExpired, CalledProcessError
 import pickle
 import json
+import sys
 
 from py_lib.get_prom_data import query_prom_data_range, get_query1
 
@@ -35,14 +36,30 @@ def run_cmds(args, target, cwd=None, timeout=None, env=None):
     `cwd` is the working directory to run the cmds.
     """
     try:
-        proc = subprocess.run(
-            args, encoding='utf-8', check=True, shell=True, cwd=cwd, timeout=timeout, env=env)
+        # proc = subprocess.run(
+        #     args, encoding='utf-8', check=True, shell=True, cwd=cwd, timeout=timeout, env=env)
+        p = subprocess.Popen(args, encoding='utf-8', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            cwd=cwd, env=env)
+        returncode = p.poll()
+        while returncode is None:
+            line = p.stdout.readline()
+            returncode = p.poll()
+            line = line.strip()
+            sys.stdout.write(line)
+        print(f"{target} returned with {returncode}")
     except TimeoutExpired as e:
+        p.terminate()
         print(f"{target} timeout.")
         exit(1)
     except CalledProcessError as e:
+        p.terminate()
         print(f"{target} failed with error:", e)
         exit(1)
+    except KeyboardInterrupt as e:
+        p.terminate()
+        print(f"{target} is interrupted.")
+        exit(1)
+
 
 
 if __name__ == "__main__":
@@ -53,10 +70,19 @@ if __name__ == "__main__":
     parser.add_argument("--sshhost", type=str, default="pyc@vmhost1.local")
     parser.add_argument("--sshpw", type=str, default="pyc5279101")
     parser.add_argument("--rootdir", type=str, default=os.getcwd())
-    parser.add_argument("--pipeline", type=str, default="all")
+    parser.add_argument("--pipeline", type=str, nargs="*", default="all")
     parser.add_argument("--expname", type=str, default="demo1")
     parser.add_argument("--verbose", type=bool, default=True, dest='verbose')
     args = parser.parse_args()
+
+    # Helper function to check the pipeline position.
+    def check_pipeline(pipeline):
+        if args.pipeline == 'all':
+            return True
+        if isinstance(args.pipeline, list) and pipeline in args.pipeline:
+            return True
+        return False
+
     if args.verbose:
         print("{:-^80}".format("Demo1 microservice system incident simulation"))
 
@@ -71,7 +97,7 @@ if __name__ == "__main__":
 
 
     # region Setup prometheus inside the swarm. Use docker-cli commands.
-    if args.pipeline == "all" or args.pipeline == "prometheus":
+    if check_pipeline("prometheus"):
         target = "prometheus"
         print("{:.^80}".format(f"Build and deploy {target}"))
         # Build and push.
@@ -90,7 +116,7 @@ if __name__ == "__main__":
 
 
     # region Setup swarm-prometheus-discovery service.
-    if args.pipeline == "all" or args.pipeline == "discovery":
+    if check_pipeline("discovery"):
         target = "swarm-prometheus-discovery"
         print("{:.^80}".format(f"Build and deploy {target}"))
         if args.verbose:
@@ -117,7 +143,7 @@ if __name__ == "__main__":
     # endregion
 
     # region customservice
-    if args.pipeline == "all" or args.pipeline == "customservice":
+    if check_pipeline("customservice"):
         target = 'customservice'
         print("{:.^80}".format(f"Compile and package {target}"))
         # compile customservice
@@ -137,7 +163,7 @@ if __name__ == "__main__":
     # endregion
 
     # region Topology deploy
-    if args.pipeline == "all" or args.pipeline == "topologydeploy":
+    if check_pipeline("topologydeploy"):
         target="topologydeploy"
         print("{:.^80}".format(f"Build and run {target}"))
         # Compile topologydeploy
@@ -156,7 +182,7 @@ if __name__ == "__main__":
     # endregion
 
     # region simple load test
-    if args.pipeline == "all" or args.pipeline == "loadtest":
+    if check_pipeline("loadtest"):
         target = "loadtest"
         print("{:.^80}".format(f"Build and deploy {target}"))
         build_go_binaries(target)
@@ -166,7 +192,7 @@ if __name__ == "__main__":
             f.write("FROM iron/base\n" + 
                 "ADD loadtest /\n" + 
                 "ENTRYPOINT [\"./loadtest\"]\n" + 
-                "CMD [\"-baseAddr\", \"servicea\", \"-port\", \"6767\", \"-zuul=false\", \"-users\", \"10\", \"-delay\", \"1000\"]")
+                "CMD [\"-baseAddr\", \"servicea\", \"-port\", \"6767\", \"-zuul=false\", \"-users\", \"1\", \"-delay\", \"5000\"]")
         run_cmds("docker build -t {tag} {target};docker push {tag}".format(
             target=target, tag=f"{args.registry}/{target}"),
             f"building docker image {target}",
@@ -186,8 +212,8 @@ if __name__ == "__main__":
     print("The Simulation Starts at:", sim_start.strftime("%Y%m%d-%H%M%S"))
     
     # region simple incident injection
-    incident_duration = datetime.timedelta(seconds=60)
-    if args.pipeline == "all" or args.pipeline == "injection":
+    incident_duration = datetime.timedelta(seconds=350)
+    if check_pipeline("injection"):
         # incident_duration = datetime.timedelta(minutes=10)
         print("{:.^80}".format("Simple incident injection (manually)"))
         while True:
@@ -207,16 +233,17 @@ if __name__ == "__main__":
     # run_cmds("./scripts/remove_customservices.sh", "deploying services")
 
     # region Record simulation results
-    print("Recording simulation results.")
-    # TODO: move the following config name to the argparse
-    svc_names = get_svc_names("deployments/customtopology/config.json")
-    all_metric_data = query_prom_data_range(svc_names, get_query1, sim_start, sim_start+incident_duration, 
-        sampling_rate=1, is_summary=False, url="http://vmhost1.local:9090")
-    metric_save_name = "{}_metric_data.pkl".format(args.expname)
-    with open(metric_save_name, "wb") as f:
-        pickle.dump(all_metric_data, f)
-    with open(args.expname, "wt") as f:
-        f.write("Simulation Start   : " + sim_start.strftime("%Y%m%d-%H%M%S") + "\n")
-        f.write("Simulation Duration: " + str(incident_duration) + "\n")
-        f.write("Metric Data        : " + metric_save_name + "\n")
+    if check_pipeline("record"):
+        print("{:.^80}".format("Recording simulation results"))
+        # TODO: move the following config name to the argparse
+        svc_names = get_svc_names("deployments/customtopology/config.json")
+        all_metric_data = query_prom_data_range(svc_names, get_query1, sim_start, sim_start+incident_duration * 2, 
+            sampling_rate=1, is_summary=False, url="http://vmhost1.local:9090")
+        metric_save_name = "{}_metric_data.pkl".format(args.expname)
+        with open(metric_save_name, "wb") as f:
+            pickle.dump(all_metric_data, f)
+        with open(args.expname, "wt") as f:
+            f.write("Simulation Start   : " + sim_start.strftime("%Y%m%d-%H%M%S") + "\n")
+            f.write("Simulation Duration: " + str(incident_duration) + "\n")
+            f.write("Metric Data        : " + metric_save_name + "\n")
     # endregion
