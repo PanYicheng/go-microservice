@@ -11,29 +11,30 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PanYicheng/go-microservice/internal/app/customservice/model"
 	"github.com/alexflint/go-arg"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 )
 
-type Service struct {
-	Name         string
-	Port         string
-	Concurrency  bool
-	CallList     []string
-	ResponseTime float64
-	Instances    int
-}
+// type Service struct {
+// 	Name         string
+// 	Port         string
+// 	Concurrency  bool
+// 	CallList     []string
+// 	ResponseTime float64
+// 	Instances    int
+// }
 
-type CircuitInfo struct {
-	Name                   string
-	Timeout                int
-	MaxConcurrentRequests  int
-	SleepWindow            int
-	ErrorPercentThreshold  int
-	RequestVolumeThreshold int
-}
+// type CircuitInfo struct {
+// 	Name                   string
+// 	Timeout                int
+// 	MaxConcurrentRequests  int
+// 	SleepWindow            int
+// 	ErrorPercentThreshold  int
+// 	RequestVolumeThreshold int
+// }
 
 var (
 	deployFd *os.File
@@ -97,7 +98,7 @@ func main() {
 	}
 
 	reuseServices := reuse(backupServices, newServices)
-	reuseServiceMap := make(map[string]*Service)
+	reuseServiceMap := make(map[string]*model.Service)
 	serviceNames = nil
 	for _, s := range reuseServices {
 		serviceNames = append(serviceNames, s.Name)
@@ -105,7 +106,7 @@ func main() {
 	}
 	logrus.WithField("ServiceNames", serviceNames).Infoln("reusable services from docker")
 
-	var newCreateServices []Service
+	var newCreateServices []model.Service
 	serviceNames = nil
 	for _, newservice := range newServices {
 		if _, ok := reuseServiceMap[newservice.Name]; !ok {
@@ -148,7 +149,7 @@ func copyFile(src, dst string) (int64, error) {
 
 // reuse helps reuse existing services. It returns services that are running
 // in the docker swarm.
-func reuse(backupServices, newServices []Service) []Service {
+func reuse(backupServices, newServices []model.Service) []model.Service {
 	// currently disable it.
 	return nil
 
@@ -172,11 +173,11 @@ func reuse(backupServices, newServices []Service) []Service {
 	}
 
 	// docker 中运行的各个 service 及从 backup.json 中读取的信息
-	backupServiceMap := make(map[string]*Service)
+	backupServiceMap := make(map[string]*model.Service)
 	for _, s := range backupServices {
 		backupServiceMap[s.Name] = &s
 	}
-	oldServices := make(map[string]Service)
+	oldServices := make(map[string]model.Service)
 	for _, s := range services {
 		if backupS, ok := backupServiceMap[s.Spec.Annotations.Name]; ok {
 			oldServices[s.Spec.Annotations.Name] = *backupS
@@ -184,7 +185,7 @@ func reuse(backupServices, newServices []Service) []Service {
 	}
 
 	// 在 oldSevices 中找到可以重复使用的 service
-	var reuseServices []Service
+	var reuseServices []model.Service
 	for name, oldservice := range oldServices {
 		for _, newservice := range newServices {
 			if newservice.Name == oldservice.Name && isSliceEqual(newservice.CallList, oldservice.CallList) && newservice.Port == oldservice.Port {
@@ -227,7 +228,7 @@ func isSliceEqual(a []string, b []string) bool {
 }
 
 // generateCode generates both the configuration files and deploy script for given services.
-func generateCode(deployDir string, services []Service, useSwarm bool) {
+func generateCode(deployDir string, services []model.Service, useSwarm bool) {
 
 	for i, service := range services {
 		logrus.Infof("Handling the %d th service: %s\n", i, service.Name)
@@ -261,7 +262,7 @@ func generateCode(deployDir string, services []Service, useSwarm bool) {
 			logrus.Fatal(err)
 		}
 		defer circuitFd.Close()
-		circuitinfo := CircuitInfo{
+		circuitinfo := model.CircuitInfo{
 			Name:                   "AtoB",
 			Timeout:                1000,
 			MaxConcurrentRequests:  1000,
@@ -339,7 +340,7 @@ func generateCode(deployDir string, services []Service, useSwarm bool) {
 }
 
 // parseServices read service configs in the specified file and returns a slice.
-func parseServices(conf string) ([]Service, error) {
+func parseServices(conf string) ([]model.Service, error) {
 
 	// 从文件中读取 services
 	jsonData, err := ioutil.ReadFile(conf)
@@ -347,7 +348,7 @@ func parseServices(conf string) ([]Service, error) {
 		return nil, err
 	}
 
-	var services []Service
+	var services []model.Service
 	err = json.Unmarshal(jsonData, &services)
 	if err != nil {
 		return nil, err
@@ -395,9 +396,9 @@ func parseServices(conf string) ([]Service, error) {
 
 // 以 service 名为节点， callList 是节点之间的关系
 // 去除掉潜在的环
-func topologicalSort(services []Service) []Service {
+func topologicalSort(services []model.Service) []model.Service {
 
-	tmp := make(map[string]Service)
+	tmp := make(map[string]model.Service)
 	for _, service := range services {
 		tmp[service.Name] = service
 	}
@@ -421,7 +422,7 @@ func topologicalSort(services []Service) []Service {
 		}
 	}
 
-	var res []Service
+	var res []model.Service
 
 	for len(q) != 0 {
 		x := q[0]

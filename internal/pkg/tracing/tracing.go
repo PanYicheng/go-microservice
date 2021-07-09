@@ -2,21 +2,24 @@ package tracing
 
 import (
 	"context"
-	"time"
 	"fmt"
+	"time"
+
 	//"github.com/opentracing/opentracing-go"
 	//"github.com/opentracing/opentracing-go/ext"
 	"github.com/openzipkin/zipkin-go"
 	//zipkinmodel "github.com/openzipkin/zipkin-go/model"
 	httpmiddleware "github.com/openzipkin/zipkin-go/middleware/http"
 	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
+
 	//zipkinlogreporter "github.com/openzipkin/zipkin-go/reporter/log"
 	//"log"
 	//"os"
 	//zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
+	"net/http"
+
 	. "github.com/PanYicheng/go-microservice/internal/pkg/route"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 // Tracer instance
@@ -37,9 +40,9 @@ func InitTracing(zipkinURL string, serviceName string) {
 	logrus.Info("Zipkin Span Url:", spanUrl)
 	reporter := httpreporter.NewReporter(
 		spanUrl,
-		httpreporter.RequestCallback(func (r *http.Request) {
+		httpreporter.RequestCallback(func(r *http.Request) {
 			logrus.Debugf("Reporter Method: %s, Url: %s, Length: %v", r.Method, r.URL, r.ContentLength)
-		}),)
+		}))
 	//reporter := zipkinlogreporter.NewReporter(log.New(os.Stderr, "", log.LstdFlags))
 
 	// create our local service endpoint
@@ -75,12 +78,11 @@ func InitTracing(zipkinURL string, serviceName string) {
 // WithTracing sets up zipkin tracing for given HTTP handler if r.Trace is true.
 func WithTracing(next http.HandlerFunc, r Route) http.HandlerFunc {
 	logrus.Debugf("WithTracing called on route %s.\n", r.Name)
-	if !r.Trace{
+	if !r.Trace {
 		return next
 	}
 	return ServerMiddleware(next).ServeHTTP
 }
-
 
 //// StartHTTPTrace loads tracing information from an INCOMING HTTP request.
 //func StartHTTPTrace(r *http.Request, opName string) zipkin.Span {
@@ -205,7 +207,7 @@ func CloseSpan(span zipkin.Span, event string) {
 
 	//sc := span.Context()
 	//logrus.Debugf("Closing TraceID: %s, ID: %s, Parent ID: %s, event: %s",
-		//sc.TraceID, sc.ID, sc.ParentID, event)
+	//sc.TraceID, sc.ID, sc.ParentID, event)
 	//span.Annotate(time.Now(), event)
 
 	span.Annotate(time.Now(), event)

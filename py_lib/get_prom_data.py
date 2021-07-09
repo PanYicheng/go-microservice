@@ -82,5 +82,5 @@ def query_prom_data_range(svc_names, query_fn, start_time, end_time, sampling_ra
                 metric_info[f'{name}_{k}'] = merged_v
         concat(timestamps_dict, 'timestamps', conv_type=np.int64)
         concat(values_dict, 'values')
-        all_metric_data["service"+n] = metric_info
+        all_metric_data[n] = metric_info
     return all_metric_data

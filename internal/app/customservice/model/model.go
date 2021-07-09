@@ -6,6 +6,8 @@ type Service struct {
 	Concurrency  bool
 	CallList     []string
 	ResponseTime float64
+	ZipkinServer string
+	Instances    int
 }
 
 type Response struct {

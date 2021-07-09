@@ -9,6 +9,3 @@ scrape_configs:
     file_sd_configs:
       - files:
         - /etc/swarm-endpoints/swarm-endpoints.json
-  - job_name: grafana 
-    static_configs:
-      - targets: ['grafana:3000']

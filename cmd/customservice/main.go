@@ -2,18 +2,20 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
 	"encoding/json"
 	"math/rand"
 
+	"github.com/sirupsen/logrus"
+
 	// "fmt"
+	"io/ioutil"
+	"time"
+
 	"github.com/PanYicheng/go-microservice/internal/app/customservice/model"
 	"github.com/PanYicheng/go-microservice/internal/app/customservice/service"
 	"github.com/PanYicheng/go-microservice/internal/pkg/monitoring"
 	"github.com/PanYicheng/go-microservice/internal/pkg/tracing"
 	"github.com/afex/hystrix-go/hystrix"
-	"io/ioutil"
-	"time"
 )
 
 func main() {
@@ -30,7 +32,7 @@ func main() {
 	}
 	logrus.Info("Reading conf.json: ", string(jsonData))
 	setCircuit()
-	tracing.InitTracing("http://zipkin:9411", service.ServiceConfig.Name)
+	tracing.InitTracing(service.ServiceConfig.ZipkinServer, service.ServiceConfig.Name)
 	// Get rid of go gc metrics in Prometheus data payload
 	monitoring.UnregisterGoCollector()
 	monitoring.BuildOtherVec(service.ServiceConfig.Name)
